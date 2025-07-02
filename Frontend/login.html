@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory System - Login</title>
+    <script src="config.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            width: 100%;
+            max-width: 900px;
+            min-height: 600px;
+            display: flex;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-left {
+            flex: 1;
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-left::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            50% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            z-index: 2;
+        }
+
+        .welcome-text {
+            text-align: center;
+            z-index: 2;
+        }
+
+        .welcome-text h1 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .welcome-text p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .login-right {
+            flex: 1;
+            padding: 60px 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .form-header h2 {
+            color: #2c3e50;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .form-header p {
+            color: #7f8c8d;
+            font-size: 1rem;
+        }
+
+        .form-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 5px;
+        }
+
+        .form-tab {
+            flex: 1;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #7f8c8d;
+            transition: all 0.3s ease;
+        }
+
+        .form-tab.active {
+            background: white;
+            color: #3498db;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+            background: white;
+        }
+
+        .form-group input.error {
+            border-color: #e74c3c;
+            background: #fdf2f2;
+        }
+
+        .form-group .error-message {
+            color: #e74c3c;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .form-group .error-message.show {
+            display: block;
+        }
+
+        .role-selection {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .role-option {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .role-option:hover {
+            border-color: #3498db;
+            background: white;
+        }
+
+        .role-option.selected {
+            border-color: #3498db;
+            background: #ebf3fd;
+            color: #3498db;
+        }
+
+        .role-option input {
+            display: none;
+        }
+
+        .role-option .role-icon {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(52, 152, 219, 0.3);
+        }
+
+        .submit-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .submit-btn .loading {
+            display: none;
+        }
+
+        .submit-btn.loading .loading {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+
+        .submit-btn.loading .text {
+            display: none;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .forgot-password {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .forgot-password a {
+            color: #3498db;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .demo-credentials {
+            background: #e8f4f8;
+            border: 1px solid #bee5eb;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        .demo-credentials h4 {
+            color: #0c5460;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .demo-credentials p {
+            margin: 5px 0;
+            color: #0c5460;
+        }
+
+        .demo-credentials strong {
+            color: #495057;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .login-container {
+                flex-direction: column;
+                margin: 10px;
+            }
+
+            .login-left {
+                min-height: 200px;
+                padding: 30px 20px;
+            }
+
+            .welcome-text h1 {
+                font-size: 2rem;
+            }
+
+            .welcome-text p {
+                font-size: 1rem;
+            }
+
+            .login-right {
+                padding: 40px 30px;
+            }
+
+            .role-selection {
+                flex-direction: column;
+            }
+        }
+
+        /* Hidden forms */
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Left Side - Welcome -->
+        <div class="login-left">
+            <div class="logo">🏭</div>
+            <div class="welcome-text">
+                <h1>Welcome Back!</h1>
+                <p>Access your inventory management dashboard and keep track of all your devices efficiently.</p>
+            </div>
+        </div>
+
+        <!-- Right Side - Forms -->
+        <div class="login-right">
+            <div class="form-header">
+                <h2 id="formTitle">Sign In</h2>
+                <p id="formSubtitle">Enter your credentials to access your account</p>
+            </div>
+
+            <!-- Form Tabs -->
+            <div class="form-tabs">
+                <button class="form-tab active" onclick="switchTab('login')">Sign In</button>
+                <button class="form-tab" onclick="switchTab('register')">Sign Up</button>
+            </div>
+
+            <!-- Alert Messages -->
+            <div id="alertMessage" class="alert"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form active">
+                <div class="form-group">
+                    <label for="loginIdentifier">Username or Email</label>
+                    <input type="text" id="loginIdentifier" name="identifier" required autocomplete="username">
+                    <div class="error-message" id="loginIdentifierError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+                    <div class="error-message" id="loginPasswordError"></div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="loginBtn">
+                    <span class="loading">⏳</span>
+                    <span class="text">Sign In</span>
+                </button>
+
+                <div class="forgot-password">
+                    <a href="#" onclick="showForgotPassword()">Forgot your password?</a>
+                </div>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" name="username" required autocomplete="username">
+                    <div class="error-message" id="registerUsernameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerEmail">Email Address</label>
+                    <input type="email" id="registerEmail" name="email" required autocomplete="email">
+                    <div class="error-message" id="registerEmailError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" name="password" required autocomplete="new-password">
+                    <div class="error-message" id="registerPasswordError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerConfirmPassword">Confirm Password</label>
+                    <input type="password" id="registerConfirmPassword" name="confirmPassword" required autocomplete="new-password">
+                    <div class="error-message" id="registerConfirmPasswordError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerDepartment">Department (Optional)</label>
+                    <input type="text" id="registerDepartment" name="department" placeholder="e.g., Production, QA, IT">
+                    <div class="error-message" id="registerDepartmentError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerSite">Site <span class="required">*</span></label>
+                    <select id="registerSite" name="site" required>
+                        <option value="">Select your site</option>
+                        <option value="Calamba">Calamba</option>
+                        <option value="Bay">Bay</option>
+                        <option value="Los Baños">Los Baños</option>
+                        <option value="La Espacio">La Espacio</option>
+                    </select>
+                    <div class="error-message" id="registerSiteError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Account Type</label>
+                    <div class="role-selection">
+                        <label class="role-option selected" for="roleUser">
+                            <input type="radio" id="roleUser" name="role" value="user" checked>
+                            <span class="role-icon">👤</span>
+                            <div>User</div>
+                        </label>
+                        <label class="role-option" for="roleAdmin">
+                            <input type="radio" id="roleAdmin" name="role" value="admin">
+                            <span class="role-icon">👑</span>
+                            <div>Admin</div>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="registerBtn">
+                    <span class="loading">⏳</span>
+                    <span class="text">Create Account</span>
+                </button>
+            </form>
+
+            <!-- Demo Credentials -->
+            <div class="demo-credentials">
+                <h4>🔧 Demo Credentials</h4>
+                <p><strong>Admin:</strong> admin / password123</p>
+                <p><strong>User:</strong> user / password123</p>
+                <p><em>Or create your own account above</em></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        const API_BASE_URL = window.INVENTORY_CONFIG.API_BASE_URL;
+        let currentTab = 'login';
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            checkExistingAuth();
+        });
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Form submissions
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('registerForm').addEventListener('submit', handleRegister);
+
+            // Role selection
+            document.querySelectorAll('.role-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    this.querySelector('input').checked = true;
+                });
+            });
+
+            // Real-time validation
+            setupRealTimeValidation();
+        }
+
+        // Setup real-time validation
+        function setupRealTimeValidation() {
+            // Username validation
+            document.getElementById('registerUsername').addEventListener('input', function() {
+                validateField(this, validateUsername);
+            });
+
+            // Email validation
+            document.getElementById('registerEmail').addEventListener('input', function() {
+                validateField(this, validateEmail);
+            });
+
+            // Password validation
+            document.getElementById('registerPassword').addEventListener('input', function() {
+                validateField(this, validatePassword);
+                // Also check confirm password if it has a value
+                const confirmPassword = document.getElementById('registerConfirmPassword');
+                if (confirmPassword.value) {
+                    validateField(confirmPassword, validateConfirmPassword);
+                }
+            });
+
+            // Confirm password validation
+            document.getElementById('registerConfirmPassword').addEventListener('input', function() {
+                validateField(this, validateConfirmPassword);
+            });
+        }
+
+        // Check if user is already authenticated
+        function checkExistingAuth() {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                // Verify token with backend
+                fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // User is already authenticated, redirect to dashboard
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        // Token is invalid, remove it
+                        localStorage.removeItem('authToken');
+                        localStorage.removeItem('username');
+                        localStorage.removeItem('userRole');
+                    }
+                })
+                .catch(error => {
+                    console.error('Auth check error:', error);
+                    // Remove potentially invalid token
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('userRole');
+                });
+            }
+        }
+
+        // Switch between login and register tabs
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tab buttons
+            document.querySelectorAll('.form-tab').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update forms
+            document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
+            document.getElementById(tab + 'Form').classList.add('active');
+
+            // Update header
+            if (tab === 'login') {
+                document.getElementById('formTitle').textContent = 'Sign In';
+                document.getElementById('formSubtitle').textContent = 'Enter your credentials to access your account';
+            } else {
+                document.getElementById('formTitle').textContent = 'Sign Up';
+                document.getElementById('formSubtitle').textContent = 'Create a new account to get started';
+            }
+
+            // Clear any existing alerts
+            hideAlert();
+        }
+
+        // Handle login form submission
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('loginBtn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const formData = new FormData(e.target);
+            const loginData = {
+                identifier: formData.get('identifier').trim(),
+                password: formData.get('password')
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(loginData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Store authentication data
+                    localStorage.setItem('authToken', result.data.token);
+                    localStorage.setItem('username', result.data.user.username);
+                    localStorage.setItem('userRole', result.data.user.role);
+                    localStorage.setItem('userEmail', result.data.user.email);
+                    localStorage.setItem('userDepartment', result.data.user.department || '');
+                    localStorage.setItem('userSite', result.data.user.site || '');
+                    localStorage.setItem('userSite', result.data.user.site || '');
+
+                    showAlert('Login successful! Redirecting...', 'success');
+                    
+                    // Redirect to dashboard after short delay
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1000);
+
+                } else {
+                    showAlert(result.error || 'Login failed. Please try again.', 'error');
+                    
+                    // Show field-specific errors if available
+                    if (result.details) {
+                        showFormErrors('login', result.details);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('Network error. Please check your connection and try again.', 'error');
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        // Handle register form submission
+        async function handleRegister(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('registerBtn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const formData = new FormData(e.target);
+            const registerData = {
+                username: formData.get('username').trim(),
+                email: formData.get('email').trim(),
+                password: formData.get('password'),
+                confirmPassword: formData.get('confirmPassword'),
+                department: formData.get('department').trim(),
+                site: formData.get('site'),
+                role: formData.get('role')
+            };
+
+            // Client-side validation
+            if (!validateRegistrationForm(registerData)) {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(registerData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Store authentication data
+                    localStorage.setItem('authToken', result.data.token);
+                    localStorage.setItem('username', result.data.user.username);
+                    localStorage.setItem('userRole', result.data.user.role);
+                    localStorage.setItem('userEmail', result.data.user.email);
+                    localStorage.setItem('userDepartment', result.data.user.department || '');
+
+                    showAlert('Account created successfully! Redirecting...', 'success');
+                    
+                    // Redirect to dashboard after short delay
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1000);
+
+                } else {
+                    showAlert(result.error || 'Registration failed. Please try again.', 'error');
+                    
+                    // Show field-specific errors if available
+                    if (result.details) {
+                        showFormErrors('register', result.details);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Registration error:', error);
+                showAlert('Network error. Please check your connection and try again.', 'error');
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        // Validation functions
+        function validateUsername(value) {
+            if (!value) return 'Username is required';
+            if (value.length < 3) return 'Username must be at least 3 characters';
+            if (value.length > 30) return 'Username cannot exceed 30 characters';
+            if (!/^[a-zA-Z0-9_-]+$/.test(value)) return 'Username can only contain letters, numbers, underscores, and hyphens';
+            return null;
+        }
+
+        function validateEmail(value) {
+            if (!value) return 'Email is required';
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(value)) return 'Please enter a valid email address';
+            return null;
+        }
+
+        function validatePassword(value) {
+            if (!value) return 'Password is required';
+            if (value.length < 6) return 'Password must be at least 6 characters';
+            if (!/(?=.*[a-z])/.test(value)) return 'Password must contain at least one lowercase letter';
+            if (!/(?=.*[A-Z])/.test(value)) return 'Password must contain at least one uppercase letter';
+            if (!/(?=.*\d)/.test(value)) return 'Password must contain at least one number';
+            return null;
+        }
+
+        function validateConfirmPassword(value) {
+            const password = document.getElementById('registerPassword').value;
+            if (!value) return 'Please confirm your password';
+            if (value !== password) return 'Passwords do not match';
+            return null;
+        }
+
+        // Real-time field validation
+        function validateField(field, validator) {
+            const error = validator(field.value);
+            const errorElement = document.getElementById(field.id + 'Error');
+            
+            if (error) {
+                field.classList.add('error');
+                errorElement.textContent = error;
+                errorElement.classList.add('show');
+            } else {
+                field.classList.remove('error');
+                errorElement.classList.remove('show');
+            }
+            
+            return !error;
+        }
+
+        // Validate entire registration form
+        function validateRegistrationForm(data) {
+            let isValid = true;
+            
+            // Validate all fields
+            const validations = [
+                { field: 'registerUsername', validator: validateUsername, value: data.username },
+                { field: 'registerEmail', validator: validateEmail, value: data.email },
+                { field: 'registerPassword', validator: validatePassword, value: data.password },
+                { field: 'registerConfirmPassword', validator: validateConfirmPassword, value: data.confirmPassword }
+            ];
+
+            validations.forEach(({ field, validator, value }) => {
+                const fieldElement = document.getElementById(field);
+                if (!validateField(fieldElement, validator)) {
+                    isValid = false;
+                }
+            });
+
+            // Validate site selection
+            if (!data.site) {
+                const siteField = document.getElementById('registerSite');
+                const errorElement = document.getElementById('registerSiteError');
+                siteField.classList.add('error');
+                errorElement.textContent = 'Please select a site';
+                errorElement.classList.add('show');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        // Show form errors from server
+        function showFormErrors(formType, errors) {
+            errors.forEach(error => {
+                const fieldName = error.param;
+                const errorElement = document.getElementById(formType + fieldName.charAt(0).toUpperCase() + fieldName.slice(1) + 'Error');
+                const fieldElement = document.getElementById(formType + fieldName.charAt(0).toUpperCase() + fieldName.slice(1));
+                
+                if (errorElement && fieldElement) {
+                    fieldElement.classList.add('error');
+                    errorElement.textContent = error.msg;
+                    errorElement.classList.add('show');
+                }
+            });
+        }
+
+        // Alert functions
+        function showAlert(message, type) {
+            const alert = document.getElementById('alertMessage');
+            alert.textContent = message;
+            alert.className = `alert ${type} show`;
+            
+            // Auto-hide after 5 seconds for non-success alerts
+            if (type !== 'success') {
+                setTimeout(() => {
+                    hideAlert();
+                }, 5000);
+            }
+        }
+
+        function hideAlert() {
+            const alert = document.getElementById('alertMessage');
+            alert.classList.remove('show');
+        }
+
+        // Forgot password (placeholder)
+        function showForgotPassword() {
+            showAlert('Password reset functionality will be implemented soon. Please contact your administrator.', 'warning');
+        }
+    </script>
+</body>
+</html>

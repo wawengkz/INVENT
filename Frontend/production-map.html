@@ -1,0 +1,3565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Map</title>
+     <script src="config.js">
+        (function() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Verify token with backend
+    fetch(window.INVENTORY_CONFIG.API_BASE_URL + '/auth/me', {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Invalid token');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Update username in all pages consistently
+        if (data.data && data.data.user) {
+            localStorage.setItem('username', data.data.user.username);
+            localStorage.setItem('userRole', data.data.user.role);
+            localStorage.setItem('userEmail', data.data.user.email);
+            localStorage.setItem('userDepartment', data.data.user.department || '');
+            
+            // Update the username display immediately
+            updateUsernameDisplay(data.data.user.username);
+        }
+    })
+    .catch(error => {
+        console.error('Auth verification failed:', error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('username');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userDepartment');
+        window.location.href = 'login.html';
+    });
+
+    // Function to update username display
+    function updateUsernameDisplay(username) {
+        const usernameElement = document.getElementById('username');
+        if (usernameElement) {
+            usernameElement.textContent = username;
+        }
+    }
+
+    // Also set username from localStorage immediately (for faster display)
+    const storedUsername = localStorage.getItem('username');
+    if (storedUsername) {
+        updateUsernameDisplay(storedUsername);
+    }
+})();
+     </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Styles */
+        #sidebar {
+    width: 250px;
+    background-color: #2c3e50;
+    color: white;
+    padding: 20px;
+    height: 100vh;
+    overflow-y: auto;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 100;
+}
+
+#sidebar h1 {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #34495e;
+}
+
+#sidebar a {
+    display: block;
+    color: #ecf0f1;
+    text-decoration: none;
+    padding: 15px 20px;
+    margin: 5px -20px;
+    transition: all 0.3s ease;
+    border-radius: 5px;
+}
+
+#sidebar a:hover {
+    background-color: #34495e;
+    padding-left: 30px;
+}
+
+#sidebar a.active {
+    background-color: #3498db;
+}
+
+/* Sub Navigation - Always visible on production map page */
+.sub-nav {
+    margin-left: 20px;
+    margin-top: 10px;
+    border-left: 2px solid #34495e;
+    padding-left: 10px;
+    display: block; /* Always visible on production map */
+}
+
+.sub-nav-link {
+    font-size: 0.9rem !important;
+    padding: 10px 15px !important;
+    margin: 2px -15px !important;
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.sub-nav-link:hover {
+    background-color: #34495e;
+    padding-left: 30px;
+}
+
+.sub-nav-link.active {
+    background-color: #27ae60 !important;
+}
+
+        /* Main Content */
+        #main-content {
+            flex: 1;
+            margin-left: 250px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f8f9fa;
+        }
+
+        /* Header with Controls */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 20px 30px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .header-left {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header h2 {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .device-counter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .counter-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .counter-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .counter-dot.empty { background-color: #ffc107; }
+        .counter-dot.registered { background-color: #17a2b8; }
+        .counter-dot.unnumbered { background-color: #dc3545; }
+
+        /* Control Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn.primary {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn.primary:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        .btn.success {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .btn.success:hover {
+            background-color: #219a52;
+        }
+
+        .btn.warning {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .btn.warning:hover {
+            background-color: #e67e22;
+        }
+
+        .btn.secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn.secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .btn.danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn.danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn.info {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .btn.info:hover {
+            background-color: #138496;
+        }
+
+        /* Zoom Controls */
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background-color: #3498db;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .zoom-btn:hover {
+            background-color: #2980b9;
+            transform: scale(1.05);
+        }
+
+        .zoom-level {
+            font-size: 12px;
+            color: #666;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+            background: 
+                radial-gradient(circle, #ddd 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .map-container.panning {
+            cursor: grabbing;
+        }
+
+        .map-container.edit-mode {
+            cursor: crosshair;
+        }
+
+        .map-container.selecting {
+            cursor: crosshair;
+        }
+
+        /* Production Floor */
+        .production-floor {
+            position: absolute;
+            transform-origin: 0 0;
+            transition: transform 0.3s ease;
+            min-width: 2000px;
+            min-height: 1500px;
+            padding: 50px;
+        }
+
+        /* Add these new CSS classes */
+.station.number-duplicate {
+    border: 3px solid #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+    animation: shake 0.5s ease-in-out;
+}
+
+.validation-message {
+    font-size: 12px;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.validation-message.success { color: #27ae60; }
+.validation-message.error { color: #e74c3c; }
+.validation-message.warning { color: #f39c12; }
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+        /* Bay Container Styles */
+        .bay-container {
+            position: absolute;
+            border: 2px solid #6c757d;
+            border-radius: 8px;
+            background-color: rgba(108, 117, 125, 0.2);
+            width: 55px;
+            height: 50px;
+            cursor: move;
+            transition: all 0.3s ease;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bay-container:hover {
+            border-color: #495057;
+            background-color: rgba(108, 117, 125, 0.3);
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+
+        .bay-container.dragging {
+            opacity: 0.7;
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .bay-container.selected {
+            border: 3px solid #007bff;
+            background-color: rgba(0, 123, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);
+        }
+
+        .bay-container.multi-dragging {
+            border: 3px solid #ff6b35;
+            background-color: rgba(255, 107, 53, 0.3);
+            box-shadow: 0 4px 20px rgba(255, 107, 53, 0.4);
+            z-index: 999;
+        }
+
+        .bay-container.multi-dragging-ghost {
+            border: 2px solid #ff9f7a;
+            background-color: rgba(255, 159, 122, 0.2);
+            opacity: 0.8;
+            z-index: 998;
+        }
+
+        .bay-header {
+            font-weight: 600;
+            font-size: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #6c757d;
+            width: 100%;
+            padding: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .bay-header:hover {
+            color: #495057;
+        }
+
+        .bay-header.editable {
+            color: #3498db;
+            background-color: rgba(52, 152, 219, 0.1);
+            border-radius: 3px;
+        }
+
+        .bay-icon {
+            width: 16px;
+            height: 16px;
+            margin-bottom: 2px;
+            background-color: #6c757d;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 8px;
+            font-weight: bold;
+        }
+
+        /* Station Styles */
+        .station {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            cursor: grab;
+            transition: all 0.3s ease;
+            font-size: 11px;
+            font-weight: 600;
+            color: #495057;
+            width: 55px;
+            height: 50px;
+            user-select: none;
+        }
+
+        .station:hover {
+            background-color: #fff;
+            border-color: #3498db;
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+
+        .station:active {
+            cursor: grabbing;
+        }
+
+        .station.has-device {
+            background-color: #d1ecf1;
+            border-color: #17a2b8;
+        }
+
+        .station.has-device:hover {
+            background-color: #bee5eb;
+            border-color: #138496;
+        }
+
+        .station.unnumbered {
+            background-color: #f8d7da;
+            border-color: #dc3545;
+        }
+
+        .station.unnumbered:hover {
+            background-color: #f5c6cb;
+            border-color: #c82333;
+        }
+
+        .station.dragging {
+            opacity: 0.8;
+            transform: scale(1.1) rotate(3deg);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            z-index: 100;
+            cursor: grabbing;
+        }
+
+        .station.selected {
+            border: 3px solid #007bff;
+            background-color: rgba(0, 123, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);
+        }
+
+        .station.multi-dragging {
+            border: 3px solid #ff6b35;
+            background-color: rgba(255, 107, 53, 0.3);
+            box-shadow: 0 4px 20px rgba(255, 107, 53, 0.4);
+            z-index: 999;
+        }
+
+        .station.multi-dragging-ghost {
+            border: 2px solid #ff9f7a;
+            background-color: rgba(255, 159, 122, 0.2);
+            opacity: 0.8;
+            z-index: 998;
+        }
+
+        .station.copied {
+            border: 3px solid #27ae60;
+            background-color: rgba(39, 174, 96, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        .station.editable .station-number {
+            background-color: #3498db;
+            color: white;
+            border-radius: 3px;
+            padding: 2px 4px;
+        }
+
+       /* Device Icon */
+/* Device Icon */
+.device-icon {
+    width: 20px;
+    height: 20px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background-color: transparent; /* Changed from rgba(255, 255, 255, 0.9) */
+    border-radius: 4px;
+    /* Removed box-shadow since transparent background doesn't need it */
+}
+
+.mouse-icon::before {
+    content: '🖱️';
+}
+
+.keyboard-icon::before {
+    content: '⌨️';
+}
+
+.headset-icon::before {
+    content: '🎧';
+}
+
+        .station-number {
+            font-size: 10px;
+            color: #495057;
+            font-weight: 700;
+        }
+
+        .station-number.editing {
+            background-color: #3498db;
+            color: white;
+            padding: 1px 3px;
+            border-radius: 3px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .station-number.unnumbered {
+            color: #dc3545;
+            font-style: italic;
+        }
+
+        .device-info {
+            font-size: 8px;
+            color: #17a2b8;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+            text-align: center;
+            max-width: 45px;
+        }
+
+        /* Inline Edit Input */
+        .inline-edit-input {
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 700;
+            text-align: center;
+            width: 35px;
+            height: 18px;
+            color: #2c3e50;
+            outline: none;
+            padding: 0 2px;
+        }
+
+        .inline-edit-input:focus {
+            border-color: #2980b9;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+
+        /* Bay inline edit input */
+        .bay-inline-edit-input {
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            text-align: center;
+            width: 45px;
+            height: 16px;
+            color: #2c3e50;
+            outline: none;
+            padding: 0 2px;
+        }
+
+        .bay-inline-edit-input:focus {
+            border-color: #2980b9;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+
+        /* Empty state */
+        .empty-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #6c757d;
+            font-size: 18px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        /* Selection area */
+        .selection-area {
+            position: absolute;
+            border: 2px dashed #007bff;
+            background-color: rgba(0, 123, 255, 0.1);
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            z-index: 10000;
+            min-width: 200px;
+            display: none;
+            overflow: hidden;
+        }
+
+        .context-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .context-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .context-menu-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .context-menu-item.disabled {
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .context-menu-item.disabled:hover {
+            background-color: transparent;
+        }
+
+        .context-menu-item .icon {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .context-menu-separator {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 4px 0;
+        }
+
+        /* Selection Info */
+        .selection-info {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 14px;
+            color: #333;
+            display: none;
+            z-index: 1000;
+        }
+
+        .selection-info.show {
+            display: block;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .toast.success { background-color: #27ae60; }
+        .toast.error { background-color: #e74c3c; }
+        .toast.warning { background-color: #f39c12; }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.3s ease;
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f8f9fa;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 1.4rem;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background-color: #f8f9fa;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .close {
+            color: #999;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .required {
+            color: #e74c3c;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.3s ease;
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f8f9fa;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 1.4rem;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background-color: #f8f9fa;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .close {
+            color: #999;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .required {
+            color: #e74c3c;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Edit Mode Controls */
+        .edit-controls {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 200;
+        }
+
+        .edit-controls.show {
+            display: flex;
+        }
+
+        .edit-controls h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .edit-controls .btn {
+            width: 100%;
+            font-size: 12px;
+            padding: 8px 12px;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(0, 123, 255, 0.6); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        /* Edit Mode Styles */
+        .edit-mode .station {
+            border: 2px dashed #3498db;
+        }
+
+        .edit-mode .bay-container {
+            border: 2px dashed #27ae60;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            #main-content {
+                margin-left: 0;
+            }
+
+            .header {
+                padding: 15px;
+            }
+
+            .header h2 {
+                font-size: 1.4rem;
+            }
+
+            .zoom-controls {
+                position: absolute;
+                bottom: 20px;
+                left: 20px;
+            }
+
+            .edit-controls {
+                right: 10px;
+                top: 80px;
+                transform: none;
+            }
+
+            .selection-info {
+                left: 10px;
+                bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+<div id="sidebar">
+    <h1>Hi, <span id="username">User</span>!</h1>
+    <div style="font-size: 0.9rem; color: #bdc3c7; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #34495e;">
+        📍 <span id="userSite">Site</span>
+    </div>
+    <a href="dashboard.html" id="nav-home">🏠 Home</a>
+    <a href="production-map.html" id="nav-production" class="active">🗺️ Production Map</a>
+    
+    <!-- Production Map Sub-Navigation - Always visible on production map page -->
+    <div class="sub-nav show" id="production-sub-nav">
+        <a href="#" class="sub-nav-link active" onclick="showMap('mouse')">
+            <span>🖱️</span> Mouse
+        </a>
+        <a href="#" class="sub-nav-link" onclick="showMap('keyboard')">
+            <span>⌨️</span> Keyboard
+        </a>
+        <a href="#" class="sub-nav-link" onclick="showMap('headset')">
+            <span>🎧</span> Headset
+        </a>
+    </div>
+    
+    <a href="dailyAudit.html" id="nav-audit">📋 Daily Audit</a>
+    <a href="#" id="nav-monitoring">📊 Monitoring</a>
+    <a href="#" id="nav-faqs">❓ FAQs</a>
+    <a href="#" onclick="logout()" id="nav-logout">🚪 Log off</a>
+</div>
+
+    <!-- Main Content -->
+    <div id="main-content">
+        <!-- Header with Controls -->
+        <div class="header">
+            <div class="header-left">
+                <h2 id="mapTitle">
+                    <span id="deviceEmoji">🖱️</span>
+                    <span id="deviceTypeTitle">Mouse</span> Production Map
+                </h2>
+                <div class="device-counter">
+                    <div class="counter-item">
+                        <div class="counter-dot empty"></div>
+                        <span id="emptyCount">0</span> Empty
+                    </div>
+                    <div class="counter-item">
+                        <div class="counter-dot registered"></div>
+                        <span id="registeredCount">0</span> Registered
+                    </div>
+                    <div class="counter-item">
+                        <div class="counter-dot unnumbered"></div>
+                        <span id="unnumberedCount">0</span> Unnumbered
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-controls">
+                <button class="btn success" onclick="addNewStation()">
+                    ➕ Add Station
+                </button>
+                <button class="btn primary" onclick="toggleEditMode()">
+                    <span id="editModeIcon">✏️</span>
+                    <span id="editModeText">Edit Mode</span>
+                </button>
+                <button class="btn success" onclick="addNewBay()">
+                    🏗️ Add Bay
+                </button>
+                <button class="btn warning" onclick="saveLayout()">
+                    💾 Save Layout
+                </button>
+                
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomOut()">-</button>
+                    <div class="zoom-level" id="zoomLevel">100%</div>
+                    <button class="zoom-btn" onclick="zoomIn()">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-container" id="mapContainer">
+            <div class="production-floor" id="productionFloor">
+                <!-- Empty state -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">📍</div>
+                    <h3>No items yet</h3>
+                    <p>Click "Add Station" or "Add Bay" to create items</p>
+                    <p style="font-size: 14px; color: #999; margin-top: 10px;">
+                        💡 Click and drag to move • Double-click to edit
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="editSelectedItem()">
+            <div class="icon">✏️</div>
+            <span>Edit</span>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="copySelected()">
+            <div class="icon">📋</div>
+            <span>Copy</span>
+        </div>
+        <div class="context-menu-item" onclick="cutSelected()">
+            <div class="icon">✂️</div>
+            <span>Cut</span>
+        </div>
+        <div class="context-menu-item" onclick="pasteElements()" id="pasteMenuItem">
+            <div class="icon">📄</div>
+            <span>Paste</span>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="duplicateSelected()">
+            <div class="icon">📑</div>
+            <span>Duplicate</span>
+        </div>
+        <div class="context-menu-item" onclick="selectAll()">
+            <div class="icon">🔘</div>
+            <span>Select All</span>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="deleteSelected()">
+            <div class="icon">🗑️</div>
+            <span>Delete</span>
+        </div>
+    </div>
+
+    <!-- Selection Info -->
+    <div class="selection-info" id="selectionInfo">
+        <span id="selectionText">0 items selected</span>
+    </div>
+
+    <!-- Edit Mode Controls -->
+    <div class="edit-controls" id="editControls">
+        <h4>Multi-Select Tools</h4>
+        <button class="btn info" onclick="selectAll()">
+            ✅ Select All
+        </button>
+        <button class="btn warning" onclick="copySelected()">
+            📋 Copy (Ctrl+C)
+        </button>
+        <button class="btn success" onclick="pasteElements()">
+            📄 Paste (Ctrl+V)
+        </button>
+        <button class="btn danger" onclick="deleteSelected()">
+            🗑️ Delete
+        </button>
+        <button class="btn secondary" onclick="clearSelection()">
+            ❌ Clear Selection
+        </button>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Station Modal -->
+    <div id="stationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="stationModalTitle">Mouse - Station ?</h3>
+                <span class="close" onclick="closeStationModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+    <label for="stationNumberInput">Station Number <span class="required">*</span></label>
+    <input type="number" id="stationNumberInput" placeholder="Enter station number (e.g., 1, 2, 3)" min="1" required>
+    <div id="numberValidationMessage" class="validation-message"></div>
+</div>
+                
+                <div class="form-group">
+                    <label for="serialNumberInput">Serial Number <span class="required">*</span></label>
+                    <input type="text" id="serialNumberInput" placeholder="Enter serial number" maxlength="50" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="brandInput">Brand (Optional)</label>
+                    <input type="text" id="brandInput" placeholder="Enter brand name" maxlength="50">
+                </div>
+                
+                <div class="form-group">
+                    <label for="modelInput">Model (Optional)</label>
+                    <input type="text" id="modelInput" placeholder="Enter model number" maxlength="50">
+                </div>
+                
+                <div class="form-group">
+                    <label for="notesInput">Notes (Optional)</label>
+                    <textarea id="notesInput" placeholder="Additional notes" maxlength="200" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" onclick="closeStationModal()">Cancel</button>
+                <button class="btn success" onclick="saveStationData()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Station Number Only Modal -->
+    <div id="stationNumberModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="stationNumberModalTitle">Assign Station Number</h3>
+                <span class="close" onclick="closeStationNumberModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="stationNumberOnlyInput">Station Number <span class="required">*</span></label>
+                    <input type="text" id="stationNumberOnlyInput" placeholder="Enter station number (e.g., 1A, 2B)" maxlength="10" required>
+                    <p style="font-size: 12px; color: #666; margin-top: 8px;">
+                        💡 Assign a station number first, then double-click again to register a device.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" onclick="closeStationNumberModal()">Cancel</button>
+                <button class="btn success" onclick="saveStationNumberOnly()">Save</button>
+            </div>
+        </div>
+    </div>
+    <div id="bayModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="bayModalTitle">Edit Bay</h3>
+                <span class="close" onclick="closeBayModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="bayNameInput">Bay Name <span class="required">*</span></label>
+                    <input type="text" id="bayNameInput" placeholder="Enter bay name (e.g., 1A, 2A)" maxlength="20" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" onclick="closeBayModal()">Cancel</button>
+                <button class="btn success" onclick="saveBayData()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Station Modal -->
+    <div id="stationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="stationModalTitle">Mouse - Station ?</h3>
+                <span class="close" onclick="closeStationModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="stationNumberInput">Station Number <span class="required">*</span></label>
+                    <input type="text" id="stationNumberInput" placeholder="Enter station number (e.g., 1A, 2B)" maxlength="10" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="serialNumberInput">Serial Number <span class="required">*</span></label>
+                    <input type="text" id="serialNumberInput" placeholder="Enter serial number" maxlength="50" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="brandInput">Brand (Optional)</label>
+                    <input type="text" id="brandInput" placeholder="Enter brand name" maxlength="50">
+                </div>
+                
+                <div class="form-group">
+                    <label for="modelInput">Model (Optional)</label>
+                    <input type="text" id="modelInput" placeholder="Enter model number" maxlength="50">
+                </div>
+                
+                <div class="form-group">
+                    <label for="notesInput">Notes (Optional)</label>
+                    <textarea id="notesInput" placeholder="Additional notes" maxlength="200" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" onclick="closeStationModal()">Cancel</button>
+                <button class="btn success" onclick="saveStationData()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bay Modal -->
+    <div id="bayModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="bayModalTitle">Edit Bay</h3>
+                <span class="close" onclick="closeBayModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="bayNameInput">Bay Name <span class="required">*</span></label>
+                    <input type="text" id="bayNameInput" placeholder="Enter bay name (e.g., 1A, 2A)" maxlength="20" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" onclick="closeBayModal()">Cancel</button>
+                <button class="btn success" onclick="saveBayData()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        const API_BASE_URL = window.INVENTORY_CONFIG.API_BASE_URL;
+        let authToken = localStorage.getItem('authToken') || 'demo-token';
+        let currentDeviceType = 'mouse';
+        let stationsData = [];
+        let baysData = [];
+        let isEditMode = false;
+        let isDragging = false;
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };
+        let currentZoom = 1;
+        let panOffset = { x: 0, y: 0 };
+        let selectedStations = new Set();
+        let selectedBays = new Set();
+        let clipboardData = { elements: [], type: null };
+        let isSelecting = false;
+        let selectionStart = { x: 0, y: 0 };
+        let lastClickTime = 0;
+        let mouseDownPos = { x: 0, y: 0 };
+        let mouseMoved = false;
+        let dragThreshold = 5;
+        let clickedElement = null;
+        let dragStartTime = 0;
+        let isEditingInline = false;
+        
+        // Modal state
+        let currentEditingStationId = null;
+        let currentEditingBayId = null;
+        let currentNumberOnlyStationId = null;
+        
+        // Multi-select drag variables
+        let multiSelectDragData = null;
+        let dragStartPos = { x: 0, y: 0 };
+
+        // Initialize
+        window.onload = function() {
+            console.log('Initializing production map...');
+            checkAuth();
+            setupEventListeners();
+            loadData();
+        };
+
+        // Check authentication - Updated version
+function checkAuth() {
+    // Username will be updated by the auth script above
+    // This function can be simplified or removed
+    const storedUsername = localStorage.getItem('username') || 'User';
+    const usernameElement = document.getElementById('username');
+    if (usernameElement) {
+        usernameElement.textContent = storedUsername;
+    }
+}
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const mapContainer = document.getElementById('mapContainer');
+
+            // Unified mouse event handling
+            mapContainer.addEventListener('mousedown', handleMouseDown);
+            mapContainer.addEventListener('mousemove', handleMouseMove);
+            mapContainer.addEventListener('mouseup', handleMouseUp);
+            mapContainer.addEventListener('mouseleave', handleMouseUp);
+
+            // Context menu
+            mapContainer.addEventListener('contextmenu', handleContextMenu);
+
+            // Zoom with mouse wheel
+            mapContainer.addEventListener('wheel', handleWheel);
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', handleKeyboard);
+
+            // Click outside to close context menu
+            document.addEventListener('click', hideContextMenu);
+
+            // Prevent context menu on context menu itself
+            document.getElementById('contextMenu').addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+        }
+
+        function handleMouseDown(e) {
+            if (e.button !== 0) return; // Only handle left click
+            
+            const clickedElement = e.target.closest('.station, .bay-container');
+            const currentTime = Date.now();
+            const isDoubleClick = currentTime - lastClickTime < 300 && clickedElement === this.lastClickedElement;
+            lastClickTime = currentTime;
+            this.lastClickedElement = clickedElement;
+
+            // Store initial mouse position
+            mouseDownPos = { x: e.clientX, y: e.clientY };
+            dragStartPos = { x: e.clientX, y: e.clientY };
+            mouseMoved = false;
+            dragStartTime = currentTime;
+
+            // Don't interfere with inline editing
+            if (isEditingInline || e.target.classList.contains('inline-edit-input') || e.target.classList.contains('bay-inline-edit-input')) {
+                return;
+            }
+
+            if (isDoubleClick) {
+                handleElementDoubleClick(e, clickedElement);
+                return;
+            }
+
+            if (clickedElement) {
+                this.clickedElement = clickedElement;
+                const elementType = clickedElement.classList.contains('station') ? 'station' : 'bay';
+                const elementId = elementType === 'station' ? 
+                    clickedElement.dataset.stationId : 
+                    clickedElement.dataset.bayId;
+
+                // In edit mode, handle selection
+                if (isEditMode) {
+                    const isCtrlClick = e.ctrlKey || e.metaKey;
+                    
+                    if (elementType === 'station') {
+                        if (isCtrlClick) {
+                            toggleStationSelection(elementId);
+                        } else {
+                            if (!selectedStations.has(elementId)) {
+                                clearSelection();
+                                selectStation(elementId);
+                            }
+                        }
+                    } else {
+                        if (isCtrlClick) {
+                            toggleBaySelection(elementId);
+                        } else {
+                            if (!selectedBays.has(elementId)) {
+                                clearSelection();
+                                selectBay(elementId);
+                            }
+                        }
+                    }
+                    
+                    updateVisuals();
+                    updateSelectionInfo();
+                }
+
+                // Don't show modal on mousedown - wait for mouseup to determine if it was a click or drag
+                e.preventDefault();
+            } else {
+                // Clicking on empty space
+                if (isEditMode) {
+                    // Clear selection first when clicking empty space
+                    if (selectedStations.size > 0 || selectedBays.size > 0) {
+                        clearSelection();
+                        updateVisuals();
+                        updateSelectionInfo();
+                        showToast('Selection cleared', 'success');
+                    }
+                    
+                    // Start selection rectangle
+                    isSelecting = true;
+                    const rect = document.getElementById('productionFloor').getBoundingClientRect();
+                    selectionStart = {
+                        x: (e.clientX - rect.left - panOffset.x) / currentZoom,
+                        y: (e.clientY - rect.top - panOffset.y) / currentZoom
+                    };
+                    document.getElementById('mapContainer').classList.add('selecting');
+                } else {
+                    // In view mode, clear selection when clicking empty space
+                    if (selectedStations.size > 0 || selectedBays.size > 0) {
+                        clearSelection();
+                        updateVisuals();
+                        updateSelectionInfo();
+                        showToast('Selection cleared', 'success');
+                    }
+                    
+                    // Start panning
+                    isPanning = true;
+                    panStart = { x: e.clientX, y: e.clientY };
+                    document.getElementById('mapContainer').classList.add('panning');
+                }
+            }
+        }
+
+          function handleMouseMove(e) {
+            const deltaX = e.clientX - mouseDownPos.x;
+            const deltaY = e.clientY - mouseDownPos.y;
+            const moveDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            if (moveDistance > dragThreshold) {
+                mouseMoved = true;
+            }
+
+            // Allow dragging when an element is clicked and mouse moved
+            if (this.clickedElement && mouseMoved && !isSelecting && !isPanning) {
+                // Start dragging element
+                if (!isDragging) {
+                    isDragging = true;
+                    document.body.style.cursor = 'grabbing';
+                    
+                    const elementType = this.clickedElement.classList.contains('station') ? 'station' : 'bay';
+                    const elementId = elementType === 'station' ? 
+                        this.clickedElement.dataset.stationId : 
+                        this.clickedElement.dataset.bayId;
+                    
+                    // Check if this is a multi-select operation in edit mode
+                    const totalSelected = selectedStations.size + selectedBays.size;
+                    const isMultiSelect = isEditMode && totalSelected > 1 && 
+                        ((elementType === 'station' && selectedStations.has(elementId)) || 
+                         (elementType === 'bay' && selectedBays.has(elementId)));
+                    
+                    if (isMultiSelect) {
+                        // Initialize multi-select drag
+                        multiSelectDragData = {
+                            isActive: true,
+                            elements: new Map(),
+                            dragElementId: elementId,
+                            dragElementType: elementType
+                        };
+                        
+                        // Store all selected elements with their initial positions
+                        selectedStations.forEach(stationId => {
+                            const station = stationsData.find(s => s._id === stationId);
+                            const stationEl = document.querySelector(`[data-station-id="${stationId}"]`);
+                            if (station && stationEl) {
+                                multiSelectDragData.elements.set(stationId, {
+                                    data: station,
+                                    element: stationEl,
+                                    type: 'station',
+                                    initialX: station.position.x,
+                                    initialY: station.position.y
+                                });
+                                
+                                // Apply visual effects
+                                if (stationId === elementId) {
+                                    stationEl.classList.add('multi-dragging');
+                                } else {
+                                    stationEl.classList.add('multi-dragging-ghost');
+                                }
+                            }
+                        });
+                        
+                        selectedBays.forEach(bayId => {
+                            const bay = baysData.find(b => b._id === bayId);
+                            const bayEl = document.querySelector(`[data-bay-id="${bayId}"]`);
+                            if (bay && bayEl) {
+                                multiSelectDragData.elements.set(bayId, {
+                                    data: bay,
+                                    element: bayEl,
+                                    type: 'bay',
+                                    initialX: bay.position.x,
+                                    initialY: bay.position.y
+                                });
+                                
+                                // Apply visual effects
+                                if (bayId === elementId) {
+                                    bayEl.classList.add('multi-dragging');
+                                } else {
+                                    bayEl.classList.add('multi-dragging-ghost');
+                                }
+                            }
+                        });
+                        
+                        console.log(`Started multi-select drag with ${multiSelectDragData.elements.size} items`);
+                    } else {
+                        // Single element drag
+                        this.clickedElement.classList.add('dragging');
+                        this.clickedElement.style.zIndex = '1000';
+                        
+                        // Store initial position for single element
+                        const elementData = elementType === 'station' ? 
+                            stationsData.find(s => s._id === elementId) :
+                            baysData.find(b => b._id === elementId);
+                        
+                        if (elementData) {
+                            this.singleDragInitialPos = {
+                                x: elementData.position.x,
+                                y: elementData.position.y
+                            };
+                        }
+                    }
+                }
+
+                // Calculate movement delta based on zoom
+                const currentDeltaX = (e.clientX - dragStartPos.x) / currentZoom;
+                const currentDeltaY = (e.clientY - dragStartPos.y) / currentZoom;
+
+                if (multiSelectDragData && multiSelectDragData.isActive) {
+                    // Multi-select movement: move all items together smoothly
+                    multiSelectDragData.elements.forEach((elementInfo, id) => {
+                        const newX = Math.max(0, Math.min(elementInfo.initialX + currentDeltaX, 2000 - 55));
+                        const newY = Math.max(0, Math.min(elementInfo.initialY + currentDeltaY, 1500 - 50));
+                        
+                        // Update position instantly for smooth movement
+                        elementInfo.data.position.x = newX;
+                        elementInfo.data.position.y = newY;
+                        elementInfo.element.style.left = `${newX}px`;
+                        elementInfo.element.style.top = `${newY}px`;
+                        elementInfo.element.style.transform = 'none';
+                    });
+                } else if (this.singleDragInitialPos) {
+                    // Single element movement
+                    const elementType = this.clickedElement.classList.contains('station') ? 'station' : 'bay';
+                    const elementId = elementType === 'station' ? 
+                        this.clickedElement.dataset.stationId : 
+                        this.clickedElement.dataset.bayId;
+                    
+                    const elementData = elementType === 'station' ? 
+                        stationsData.find(s => s._id === elementId) :
+                        baysData.find(b => b._id === elementId);
+
+                    if (elementData) {
+                        const newX = Math.max(0, Math.min(this.singleDragInitialPos.x + currentDeltaX, 2000 - 55));
+                        const newY = Math.max(0, Math.min(this.singleDragInitialPos.y + currentDeltaY, 1500 - 50));
+                        
+                        this.clickedElement.style.left = `${newX}px`;
+                        this.clickedElement.style.top = `${newY}px`;
+                        elementData.position.x = newX;
+                        elementData.position.y = newY;
+                    }
+                }
+            } else if (isSelecting) {
+                // Update selection rectangle
+                const rect = document.getElementById('productionFloor').getBoundingClientRect();
+                const currentPos = {
+                    x: (e.clientX - rect.left - panOffset.x) / currentZoom,
+                    y: (e.clientY - rect.top - panOffset.y) / currentZoom
+                };
+                
+                let selectionArea = document.querySelector('.selection-area');
+                if (!selectionArea) {
+                    selectionArea = document.createElement('div');
+                    selectionArea.className = 'selection-area';
+                    document.getElementById('productionFloor').appendChild(selectionArea);
+                }
+                
+                const left = Math.min(selectionStart.x, currentPos.x);
+                const top = Math.min(selectionStart.y, currentPos.y);
+                const width = Math.abs(currentPos.x - selectionStart.x);
+                const height = Math.abs(currentPos.y - selectionStart.y);
+                
+                selectionArea.style.left = `${left}px`;
+                selectionArea.style.top = `${top}px`;
+                selectionArea.style.width = `${width}px`;
+                selectionArea.style.height = `${height}px`;
+            } else if (isPanning) {
+                // Handle panning
+                const deltaX = e.clientX - panStart.x;
+                const deltaY = e.clientY - panStart.y;
+                
+                panOffset.x += deltaX;
+                panOffset.y += deltaY;
+                
+                panStart = { x: e.clientX, y: e.clientY };
+                updateTransform();
+            }
+        }
+
+
+        function handleMouseUp(e) {
+            // Handle click vs drag distinction
+            if (this.clickedElement && !mouseMoved && !isDragging) {
+                // This was a click (not a drag) - show modal after a brief delay to avoid conflicts with double-click
+                const elementType = this.clickedElement.classList.contains('station') ? 'station' : 'bay';
+                const elementId = elementType === 'station' ? 
+                    this.clickedElement.dataset.stationId : 
+                    this.clickedElement.dataset.bayId;
+
+                // Only show modal if we're not in edit mode (edit mode is for selection/dragging)
+                if (!isEditMode) {
+                    setTimeout(() => {
+                        // Check if this wasn't followed by a second click (double-click)
+                        const timeSinceClick = Date.now() - dragStartTime;
+                        if (timeSinceClick < 350) { // Still within double-click window
+                            return; // Don't show modal, might be double-click
+                        }
+                        
+                        if (elementType === 'station') {
+                            showStationModal(elementId);
+                        } else {
+                            showBayModal(elementId);
+                        }
+                    }, 350); // Wait for potential double-click
+                }
+            }
+
+            if (this.clickedElement && isDragging && mouseMoved) {
+                if (multiSelectDragData && multiSelectDragData.isActive) {
+                    // Multi-select: clean up and save positions
+                    let updateCount = 0;
+                    
+                    multiSelectDragData.elements.forEach(async (elementInfo, id) => {
+                        // Remove visual effects
+                        elementInfo.element.classList.remove('multi-dragging', 'multi-dragging-ghost');
+                        elementInfo.element.style.transform = '';
+                        
+                        // Update backend position
+                        if (elementInfo.type === 'station') {
+                            await updateStationPosition(id, elementInfo.data.position.x, elementInfo.data.position.y);
+                        } else {
+                            await updateBayPosition(id, elementInfo.data.position.x, elementInfo.data.position.y);
+                        }
+                        updateCount++;
+                    });
+                    
+                    showToast(`Moved ${multiSelectDragData.elements.size} items together`, 'success');
+                    multiSelectDragData = null;
+                } else {
+                    // Single element
+                    const elementType = this.clickedElement.classList.contains('station') ? 'station' : 'bay';
+                    const elementId = elementType === 'station' ? 
+                        this.clickedElement.dataset.stationId : 
+                        this.clickedElement.dataset.bayId;
+                    
+                    const elementData = elementType === 'station' ? 
+                        stationsData.find(s => s._id === elementId) :
+                        baysData.find(b => b._id === elementId);
+
+                    if (elementData) {
+                        // Update backend position
+                        if (elementType === 'station') {
+                            updateStationPosition(elementId, elementData.position.x, elementData.position.y);
+                        } else {
+                            updateBayPosition(elementId, elementData.position.x, elementData.position.y);
+                        }
+                        showToast(`Moved ${elementType} ${elementData.stationNumber || elementData.name || '?'}`, 'success');
+                    }
+
+                    this.clickedElement.classList.remove('dragging');
+                    this.clickedElement.style.zIndex = '';
+                }
+
+                document.body.style.cursor = '';
+            }
+
+            if (isSelecting) {
+                // Finish selection rectangle
+                const selectionArea = document.querySelector('.selection-area');
+                if (selectionArea) {
+                    const rect = document.getElementById('productionFloor').getBoundingClientRect();
+                    const currentPos = {
+                        x: (e.clientX - rect.left - panOffset.x) / currentZoom,
+                        y: (e.clientY - rect.top - panOffset.y) / currentZoom
+                    };
+                    
+                    const selectionRect = {
+                        left: Math.min(selectionStart.x, currentPos.x),
+                        top: Math.min(selectionStart.y, currentPos.y),
+                        right: Math.max(selectionStart.x, currentPos.x),
+                        bottom: Math.max(selectionStart.y, currentPos.y)
+                    };
+                    
+                    // Check if this was a significant drag (not just a click)
+                    const dragDistance = Math.sqrt(
+                        Math.pow(currentPos.x - selectionStart.x, 2) + 
+                        Math.pow(currentPos.y - selectionStart.y, 2)
+                    );
+                    
+                    if (dragDistance > 10) { // Only select if user actually dragged
+                        if (!e.ctrlKey && !e.metaKey) {
+                            // Don't clear selection here since we already cleared it on mousedown
+                        }
+                        
+                        stationsData.forEach(station => {
+                            if (station.position.x >= selectionRect.left && 
+                                station.position.x <= selectionRect.right &&
+                                station.position.y >= selectionRect.top && 
+                                station.position.y <= selectionRect.bottom) {
+                                selectStation(station._id);
+                            }
+                        });
+
+                        baysData.forEach(bay => {
+                            if (bay.position.x >= selectionRect.left && 
+                                bay.position.x <= selectionRect.right &&
+                                bay.position.y >= selectionRect.top && 
+                                bay.position.y <= selectionRect.bottom) {
+                                selectBay(bay._id);
+                            }
+                        });
+
+                        updateVisuals();
+                        updateSelectionInfo();
+                    }
+                    
+                    selectionArea.remove();
+                }
+            }
+
+            // Reset all states
+            isDragging = false;
+            isSelecting = false;
+            isPanning = false;
+            this.clickedElement = null;
+            this.singleDragInitialPos = null;
+            multiSelectDragData = null;
+            mouseMoved = false;
+            document.getElementById('mapContainer').classList.remove('panning', 'selecting');
+        }
+
+        // Modal functions
+        function showStationNumberModal(stationId) {
+            currentNumberOnlyStationId = stationId;
+            const station = stationsData.find(s => s._id === stationId);
+            
+            if (!station) return;
+
+            // Update modal title
+            const deviceEmojis = { mouse: '🖱️', keyboard: '⌨️', headset: '🎧' };
+            const deviceTitles = { mouse: 'Mouse', keyboard: 'Keyboard', headset: 'Headset' };
+            
+            document.getElementById('stationNumberModalTitle').textContent = 
+                `Assign ${deviceTitles[currentDeviceType]} Station Number`;
+
+            // Clear and focus on input
+            document.getElementById('stationNumberOnlyInput').value = '';
+
+            // Show modal
+            document.getElementById('stationNumberModal').style.display = 'block';
+            
+            setTimeout(() => {
+                document.getElementById('stationNumberOnlyInput').focus();
+            }, 100);
+        }
+
+        function closeStationNumberModal() {
+            document.getElementById('stationNumberModal').style.display = 'none';
+            currentNumberOnlyStationId = null;
+            document.getElementById('stationNumberOnlyInput').value = '';
+        }
+
+        async function saveStationNumberOnly() {
+            const stationNumber = document.getElementById('stationNumberOnlyInput').value.trim();
+
+            if (!stationNumber) {
+                showToast('Station number is required', 'error');
+                document.getElementById('stationNumberOnlyInput').focus();
+                return;
+            }
+
+            try {
+                await updateStationNumber(currentNumberOnlyStationId, stationNumber);
+                showToast(`Station number "${stationNumber}" assigned! Double-click again to register device.`, 'success');
+                closeStationNumberModal();
+            } catch (error) {
+                console.error('Error saving station number:', error);
+                showToast('Error saving station number', 'error');
+            }
+        }
+
+        function showStationModal(stationId) {
+            currentEditingStationId = stationId;
+            const station = stationsData.find(s => s._id === stationId);
+            
+            if (!station) return;
+
+            // Check if station has a number - if not, redirect to number-only modal
+            if (!station.stationNumber) {
+                showStationNumberModal(stationId);
+                return;
+            }
+
+            // Update modal title
+            const deviceEmojis = { mouse: '🖱️', keyboard: '⌨️', headset: '🎧' };
+            const deviceTitles = { mouse: 'Mouse', keyboard: 'Keyboard', headset: 'Headset' };
+            
+            const stationNumber = station.stationNumber || '?';
+            document.getElementById('stationModalTitle').textContent = 
+                `${deviceTitles[currentDeviceType]} - Station ${stationNumber}`;
+
+            // Pre-fill form fields
+            document.getElementById('stationNumberInput').value = station.stationNumber || '';
+            document.getElementById('serialNumberInput').value = station.device?.serialNumber || '';
+            document.getElementById('brandInput').value = station.device?.brand || '';
+            document.getElementById('modelInput').value = station.device?.model || '';
+            document.getElementById('notesInput').value = station.device?.notes || '';
+
+            // Show modal
+            document.getElementById('stationModal').style.display = 'block';
+            
+            // Focus on serial number since station number is already assigned
+            setTimeout(() => {
+                document.getElementById('serialNumberInput').focus();
+            }, 100);
+        }
+
+        function closeStationModal() {
+            document.getElementById('stationModal').style.display = 'none';
+            currentEditingStationId = null;
+            
+            // Clear form
+            document.getElementById('stationNumberInput').value = '';
+            document.getElementById('serialNumberInput').value = '';
+            document.getElementById('brandInput').value = '';
+            document.getElementById('modelInput').value = '';
+            document.getElementById('notesInput').value = '';
+        }
+
+        function showBayModal(bayId) {
+            currentEditingBayId = bayId;
+            const bay = baysData.find(b => b._id === bayId);
+            
+            if (!bay) return;
+
+            // Pre-fill form field
+            document.getElementById('bayNameInput').value = bay.name || '';
+
+            // Show modal
+            document.getElementById('bayModal').style.display = 'block';
+            
+            // Focus on bay name input
+            setTimeout(() => {
+                document.getElementById('bayNameInput').focus();
+                document.getElementById('bayNameInput').select();
+            }, 100);
+        }
+
+        function closeBayModal() {
+            document.getElementById('bayModal').style.display = 'none';
+            currentEditingBayId = null;
+            
+            // Clear form
+            document.getElementById('bayNameInput').value = '';
+        }
+
+        async function saveStationData() {
+            const stationNumber = document.getElementById('stationNumberInput').value.trim();
+            const serialNumber = document.getElementById('serialNumberInput').value.trim();
+            const brand = document.getElementById('brandInput').value.trim();
+            const model = document.getElementById('modelInput').value.trim();
+            const notes = document.getElementById('notesInput').value.trim();
+
+            if (!stationNumber) {
+                showToast('Station number is required', 'error');
+                document.getElementById('stationNumberInput').focus();
+                return;
+            }
+
+            if (!serialNumber) {
+                showToast('Serial number is required', 'error');
+                document.getElementById('serialNumberInput').focus();
+                return;
+            }
+
+            try {
+                // Update station number first
+                if (stationNumber) {
+                    await updateStationNumber(currentEditingStationId, stationNumber);
+                }
+
+                // Register device
+                const deviceData = {
+                    serialNumber,
+                    brand,
+                    model,
+                    notes
+                };
+
+                const response = await fetch(`${API_BASE_URL}/stations/${currentEditingStationId}/device`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(deviceData)
+                });
+
+                if (response.ok) {
+                    showToast('Station updated successfully!', 'success');
+                    closeStationModal();
+                    await loadData(); // Refresh data
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.error || 'Failed to register device', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving station data:', error);
+                showToast('Error saving station data', 'error');
+            }
+        }
+
+        // Store context menu position for paste operations
+let contextMenuPosition = null;
+
+function getContextMenuPosition() {
+    return contextMenuPosition;
+}
+
+function clearContextMenuPosition() {
+    contextMenuPosition = null;
+}
+
+// Update handleContextMenu function to store position
+function handleContextMenu(e) {
+    e.preventDefault();
+    
+    // Store the context menu position for paste operations
+    const rect = document.getElementById('productionFloor').getBoundingClientRect();
+    contextMenuPosition = {
+        x: (e.clientX - rect.left - panOffset.x) / currentZoom,
+        y: (e.clientY - rect.top - panOffset.y) / currentZoom
+    };
+    
+    const contextMenu = document.getElementById('contextMenu');
+    const pasteMenuItem = document.getElementById('pasteMenuItem');
+    
+    // Enable/disable paste based on clipboard
+    if (clipboardData.elements.length > 0) {
+        pasteMenuItem.classList.remove('disabled');
+    } else {
+        pasteMenuItem.classList.add('disabled');
+    }
+    
+    // Position context menu
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+    contextMenu.style.display = 'block';
+    
+    // Adjust position if menu goes off screen
+    const rect2 = contextMenu.getBoundingClientRect();
+    if (rect2.right > window.innerWidth) {
+        contextMenu.style.left = `${e.clientX - rect2.width}px`;
+    }
+    if (rect2.bottom > window.innerHeight) {
+        contextMenu.style.top = `${e.clientY - rect2.height}px`;
+    }
+}
+
+        async function saveBayData() {
+            const bayName = document.getElementById('bayNameInput').value.trim().toUpperCase();
+
+            if (!bayName) {
+                showToast('Bay name is required', 'error');
+                document.getElementById('bayNameInput').focus();
+                return;
+            }
+
+            try {
+                await updateBayName(currentEditingBayId, bayName);
+                showToast('Bay updated successfully!', 'success');
+                closeBayModal();
+            } catch (error) {
+                console.error('Error saving bay data:', error);
+                showToast('Error saving bay data', 'error');
+            }
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const stationModal = document.getElementById('stationModal');
+            const bayModal = document.getElementById('bayModal');
+            const stationNumberModal = document.getElementById('stationNumberModal');
+            
+            if (event.target == stationModal) {
+                closeStationModal();
+            }
+            if (event.target == bayModal) {
+                closeBayModal();
+            }
+            if (event.target == stationNumberModal) {
+                closeStationNumberModal();
+            }
+        }
+
+        // Handle Enter key in modals
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                if (document.getElementById('stationModal').style.display === 'block') {
+                    e.preventDefault();
+                    saveStationData();
+                } else if (document.getElementById('bayModal').style.display === 'block') {
+                    e.preventDefault();
+                    saveBayData();
+                }
+            } else if (e.key === 'Escape') {
+                if (document.getElementById('stationModal').style.display === 'block') {
+                    closeStationModal();
+                } else if (document.getElementById('bayModal').style.display === 'block') {
+                    closeBayModal();
+                }
+            }
+        });
+
+        // Double click handler for elements - Keep existing inline editing for quick edits
+        function handleElementDoubleClick(e, clickedElement) {
+            e.stopPropagation();
+            
+            if (!clickedElement || isEditingInline) return;
+
+            const elementType = clickedElement.classList.contains('station') ? 'station' : 'bay';
+            
+            if (elementType === 'station') {
+                // For double-click, show modal instead of inline edit
+                const stationId = clickedElement.dataset.stationId;
+                showStationModal(stationId);
+            } else {
+                // For bays, show modal instead of inline edit
+                const bayId = clickedElement.dataset.bayId;
+                showBayModal(bayId);
+            }
+        }
+
+        // Start inline editing for station number
+        function startStationNumberEdit(stationElement) {
+            if (isEditingInline) return;
+            
+            isEditingInline = true;
+            const stationId = stationElement.dataset.stationId;
+            const station = stationsData.find(s => s._id === stationId);
+            const numberElement = stationElement.querySelector('.station-number');
+            
+            if (!station || !numberElement) return;
+
+            const currentValue = station.stationNumber || '';
+            
+            // Create input element
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'inline-edit-input';
+            input.value = currentValue;
+            input.maxLength = 10;
+            input.placeholder = 'e.g. 1A';
+            
+            // Replace the text with input
+            numberElement.style.display = 'none';
+            numberElement.parentNode.insertBefore(input, numberElement);
+            
+            // Focus and select text
+            input.focus();
+            input.select();
+            
+            // Handle save/cancel
+            const saveEdit = async () => {
+                const newValue = input.value.trim();
+                input.remove();
+                numberElement.style.display = '';
+                isEditingInline = false;
+                
+                if (newValue && newValue !== currentValue) {
+                    await updateStationNumber(stationId, newValue);
+                }
+            };
+            
+            const cancelEdit = () => {
+                input.remove();
+                numberElement.style.display = '';
+                isEditingInline = false;
+            };
+            
+            // Event listeners
+            input.addEventListener('blur', saveEdit);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveEdit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEdit();
+                }
+            });
+        }
+
+        // Start inline editing for bay name
+        function startBayNameEdit(bayElement) {
+            if (isEditingInline) return;
+            
+            isEditingInline = true;
+            const bayId = bayElement.dataset.bayId;
+            const bay = baysData.find(b => b._id === bayId);
+            const nameElement = bayElement.querySelector('.bay-header');
+            
+            if (!bay || !nameElement) return;
+
+            const currentValue = bay.name || '';
+            
+            // Create input element
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'bay-inline-edit-input';
+            input.value = currentValue;
+            input.maxLength = 20;
+            input.placeholder = 'e.g. 1A';
+            
+            // Replace the text with input
+            nameElement.style.display = 'none';
+            nameElement.parentNode.insertBefore(input, nameElement);
+            
+            // Focus and select text
+            input.focus();
+            input.select();
+            
+            // Handle save/cancel
+            const saveEdit = async () => {
+                const newValue = input.value.trim().toUpperCase();
+                input.remove();
+                nameElement.style.display = '';
+                isEditingInline = false;
+                
+                if (newValue && newValue !== currentValue) {
+                    await updateBayName(bayId, newValue);
+                }
+            };
+            
+            const cancelEdit = () => {
+                input.remove();
+                nameElement.style.display = '';
+                isEditingInline = false;
+            };
+            
+            // Event listeners
+            input.addEventListener('blur', saveEdit);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveEdit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEdit();
+                }
+            });
+        }
+
+        // Update station number via API
+        async function updateStationNumber(stationId, newNumber) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stations/${stationId}/number`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ stationNumber: newNumber })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    // Update local data
+                    const station = stationsData.find(s => s._id === stationId);
+                    if (station) {
+                        station.stationNumber = newNumber;
+                        // Update visual
+                        const stationEl = document.querySelector(`[data-station-id="${stationId}"]`);
+                        if (stationEl) {
+                            const numberEl = stationEl.querySelector('.station-number');
+                            if (numberEl) {
+                                numberEl.textContent = newNumber;
+                                numberEl.classList.remove('unnumbered');
+                                stationEl.classList.remove('unnumbered');
+                            }
+                        }
+                        updateCounters();
+                        showToast(`Station number updated to "${newNumber}"`, 'success');
+                    }
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.error || 'Failed to update station number', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating station number:', error);
+                showToast('Error updating station number', 'error');
+            }
+        }
+
+        // Update bay name via API
+        async function updateBayName(bayId, newName) {
+            try {
+                // For local bays (starting with 'local_'), update locally
+                if (bayId.startsWith('local_')) {
+                    const bay = baysData.find(b => b._id === bayId);
+                    if (bay) {
+                        const oldName = bay.name;
+                        bay.name = newName;
+                        
+                        // Update visual
+                        const bayEl = document.querySelector(`[data-bay-id="${bayId}"]`);
+                        if (bayEl) {
+                            const nameEl = bayEl.querySelector('.bay-header');
+                            if (nameEl) {
+                                nameEl.textContent = newName;
+                            }
+                        }
+                        
+                        showToast(`Bay name updated to "${newName}"`, 'success');
+                    }
+                    return;
+                }
+
+                const response = await fetch(`${API_BASE_URL}/bays/${bayId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ name: newName })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    // Update local data
+                    const bay = baysData.find(b => b._id === bayId);
+                    if (bay) {
+                        bay.name = newName;
+                        // Update visual
+                        const bayEl = document.querySelector(`[data-bay-id="${bayId}"]`);
+                        if (bayEl) {
+                            const nameEl = bayEl.querySelector('.bay-header');
+                            if (nameEl) {
+                                nameEl.textContent = newName;
+                            }
+                        }
+                        showToast(`Bay name updated to "${newName}"`, 'success');
+                    }
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.error || 'Failed to update bay name', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating bay name:', error);
+                showToast('Error updating bay name', 'error');
+            }
+        }
+
+        // Update position functions
+        async function updateStationPosition(stationId, x, y) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stations/${stationId}/position`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ x, y })
+                });
+
+                if (response.ok) {
+                    const station = stationsData.find(s => s._id === stationId);
+                    if (station) {
+                        station.position.x = x;
+                        station.position.y = y;
+                    }
+                } else {
+                    console.error('Failed to update station position:', response.status);
+                }
+            } catch (error) {
+                console.error('Error updating station position:', error);
+            }
+        }
+
+        async function updateBayPosition(bayId, x, y) {
+            try {
+                if (bayId.startsWith('local_')) {
+                    const bay = baysData.find(b => b._id === bayId);
+                    if (bay) {
+                        bay.position.x = x;
+                        bay.position.y = y;
+                    }
+                    return;
+                }
+
+                const response = await fetch(`${API_BASE_URL}/bays/${bayId}/position`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ x, y })
+                });
+
+                if (response.ok) {
+                    const bay = baysData.find(b => b._id === bayId);
+                    if (bay) {
+                        bay.position.x = x;
+                        bay.position.y = y;
+                    }
+                } else {
+                    console.error('Failed to update bay position:', response.status);
+                }
+            } catch (error) {
+                console.error('Error updating bay position:', error);
+                
+                // Fallback: update locally
+                const bay = baysData.find(b => b._id === bayId);
+                if (bay) {
+                    bay.position.x = x;
+                    bay.position.y = y;
+                }
+            }
+        }
+
+        // Load data from backend
+        async function loadData() {
+            console.log('Loading data...');
+            await Promise.all([loadStations(), loadBays()]);
+            console.log('Data loaded - Stations:', stationsData.length, 'Bays:', baysData.length);
+            renderMap();
+            updateCounters();
+            updateSelectionInfo();
+        }
+
+        // Load stations from backend
+        async function loadStations() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stations/${currentDeviceType}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    stationsData = data.data || [];
+                } else {
+                    console.error('Failed to load stations:', response.status);
+                    stationsData = [];
+                }
+            } catch (error) {
+                console.error('Error loading stations:', error);
+                stationsData = [];
+            }
+        }
+
+        // Load bays from backend
+        async function loadBays() {
+            try {
+                console.log(`Loading bays for device type: ${currentDeviceType}`);
+                
+                const response = await fetch(`${API_BASE_URL}/bays/${currentDeviceType}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    baysData = data.data || [];
+                } else if (response.status === 404) {
+                    console.log('Bays endpoint not found, starting with empty bays');
+                    baysData = [];
+                } else {
+                    console.log('Error loading bays, starting with empty bays');
+                    baysData = [];
+                }
+            } catch (error) {
+                console.error('Error loading bays:', error);
+                baysData = [];
+            }
+        }
+
+        // Render the complete map
+        function renderMap() {
+            console.log('Rendering map - isEditMode:', isEditMode);
+            const productionFloor = document.getElementById('productionFloor');
+            const emptyState = document.getElementById('emptyState');
+            
+            // Clear existing content except empty state
+            const existingElements = productionFloor.querySelectorAll('.bay-container, .station');
+            existingElements.forEach(el => el.remove());
+
+            if (stationsData.length === 0 && baysData.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            // Render bays first (behind stations)
+            baysData.forEach((bay) => {
+                const bayElement = createBayElement(bay);
+                productionFloor.appendChild(bayElement);
+            });
+
+            // Render stations
+            stationsData.forEach((station) => {
+                const stationElement = createStationElement(station);
+                productionFloor.appendChild(stationElement);
+            });
+
+            updateVisuals();
+        }
+
+        // Create bay element
+        function createBayElement(bay) {
+            const bayContainer = document.createElement('div');
+            bayContainer.className = 'bay-container';
+            bayContainer.style.left = `${bay.position.x}px`;
+            bayContainer.style.top = `${bay.position.y}px`;
+            bayContainer.dataset.bayId = bay._id;
+            bayContainer.dataset.bayName = bay.name;
+
+            const bayIcon = document.createElement('div');
+            bayIcon.className = 'bay-icon';
+            bayIcon.textContent = '🏗️';
+
+            const bayHeader = document.createElement('div');
+            bayHeader.className = 'bay-header';
+            bayHeader.textContent = bay.name || '?';
+            
+            bayContainer.appendChild(bayIcon);
+            bayContainer.appendChild(bayHeader);
+
+            return bayContainer;
+        }
+
+        // Create station element
+        function createStationElement(station) {
+            const stationEl = document.createElement('div');
+            stationEl.className = 'station';
+            stationEl.style.left = `${station.position.x}px`;
+            stationEl.style.top = `${station.position.y}px`;
+            stationEl.dataset.stationId = station._id;
+            stationEl.dataset.stationNumber = station.stationNumber || '';
+
+            if (station.device && station.device.serialNumber) {
+                stationEl.classList.add('has-device');
+            }
+
+            if (!station.stationNumber) {
+                stationEl.classList.add('unnumbered');
+            }
+
+            const icon = document.createElement('div');
+            icon.className = `device-icon ${currentDeviceType}-icon`;
+
+            const number = document.createElement('div');
+            number.className = 'station-number';
+            if (station.stationNumber) {
+                number.textContent = station.stationNumber;
+            } else {
+                number.textContent = '?';
+                number.classList.add('unnumbered');
+            }
+
+            const info = document.createElement('div');
+            info.className = 'device-info';
+            if (station.device && station.device.serialNumber) {
+                info.textContent = station.device.serialNumber.substring(0, 4) + '...';
+                info.title = `${station.device.serialNumber}`;
+            }
+
+            stationEl.appendChild(icon);
+            stationEl.appendChild(number);
+            stationEl.appendChild(info);
+
+            return stationEl;
+        }
+
+        // Selection functions
+        function selectStation(stationId) {
+            selectedStations.add(stationId);
+        }
+
+        function selectBay(bayId) {
+            selectedBays.add(bayId);
+        }
+
+        function toggleStationSelection(stationId) {
+            if (selectedStations.has(stationId)) {
+                selectedStations.delete(stationId);
+            } else {
+                selectedStations.add(stationId);
+            }
+        }
+
+        function toggleBaySelection(bayId) {
+            if (selectedBays.has(bayId)) {
+                selectedBays.delete(bayId);
+            } else {
+                selectedBays.add(bayId);
+            }
+        }
+
+        function clearSelection() {
+            selectedStations.clear();
+            selectedBays.clear();
+        }
+
+        function selectAll() {
+            clearSelection();
+            stationsData.forEach(station => selectedStations.add(station._id));
+            baysData.forEach(bay => selectedBays.add(bay._id));
+            updateVisuals();
+            updateSelectionInfo();
+            showToast(`Selected ${selectedStations.size} stations and ${selectedBays.size} bays`, 'success');
+        }
+
+        function updateVisuals() {
+            // Update station visuals
+            document.querySelectorAll('.station').forEach(stationEl => {
+                const stationId = stationEl.dataset.stationId;
+                if (selectedStations.has(stationId)) {
+                    stationEl.classList.add('selected');
+                } else {
+                    stationEl.classList.remove('selected');
+                }
+            });
+
+            // Update bay visuals
+            document.querySelectorAll('.bay-container').forEach(bayEl => {
+                const bayId = bayEl.dataset.bayId;
+                if (selectedBays.has(bayId)) {
+                    bayEl.classList.add('selected');
+                } else {
+                    bayEl.classList.remove('selected');
+                }
+            });
+        }
+
+        function updateSelectionInfo() {
+            const totalSelected = selectedStations.size + selectedBays.size;
+            const selectionInfo = document.getElementById('selectionInfo');
+            const selectionText = document.getElementById('selectionText');
+            
+            if (totalSelected > 0) {
+                selectionText.textContent = `${totalSelected} items selected (${selectedStations.size} stations, ${selectedBays.size} bays)`;
+                selectionInfo.classList.add('show');
+            } else {
+                selectionInfo.classList.remove('show');
+            }
+        }
+
+        // Context menu functions
+        function handleContextMenu(e) {
+            e.preventDefault();
+            
+            const contextMenu = document.getElementById('contextMenu');
+            const pasteMenuItem = document.getElementById('pasteMenuItem');
+            
+            // Enable/disable paste based on clipboard
+            if (clipboardData.elements.length > 0) {
+                pasteMenuItem.classList.remove('disabled');
+            } else {
+                pasteMenuItem.classList.add('disabled');
+            }
+            
+            // Position context menu
+            contextMenu.style.left = `${e.clientX}px`;
+            contextMenu.style.top = `${e.clientY}px`;
+            contextMenu.style.display = 'block';
+            
+            // Adjust position if menu goes off screen
+            const rect = contextMenu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+                contextMenu.style.left = `${e.clientX - rect.width}px`;
+            }
+            if (rect.bottom > window.innerHeight) {
+                contextMenu.style.top = `${e.clientY - rect.height}px`;
+            }
+        }
+
+        function hideContextMenu() {
+    document.getElementById('contextMenu').style.display = 'none';
+    // Don't clear context menu position immediately - wait for potential paste
+    setTimeout(() => {
+        clearContextMenuPosition();
+    }, 1000); // Clear after 1 second if no paste operation
+}
+
+        // Copy/Cut/Paste functions
+        function copySelected() {
+            const totalSelected = selectedStations.size + selectedBays.size;
+            
+            if (totalSelected === 0) {
+                showToast('No items selected to copy', 'warning');
+                return;
+            }
+
+            clipboardData.elements = [];
+            clipboardData.type = 'copy';
+
+            // Copy selected stations
+            selectedStations.forEach(stationId => {
+                const station = stationsData.find(s => s._id === stationId);
+                if (station) {
+                    clipboardData.elements.push({
+                        type: 'station',
+                        data: { ...station }
+                    });
+                }
+            });
+
+            // Copy selected bays
+            selectedBays.forEach(bayId => {
+                const bay = baysData.find(b => b._id === bayId);
+                if (bay) {
+                    clipboardData.elements.push({
+                        type: 'bay',
+                        data: { ...bay }
+                    });
+                }
+            });
+
+            // Visual feedback
+            document.querySelectorAll('.station.selected, .bay-container.selected').forEach(el => {
+                el.classList.add('copied');
+                setTimeout(() => el.classList.remove('copied'), 2000);
+            });
+
+            showToast(`Copied ${totalSelected} items`, 'success');
+            hideContextMenu();
+        }
+
+        function cutSelected() {
+            copySelected();
+            clipboardData.type = 'cut';
+            
+            // Visual feedback for cut
+            document.querySelectorAll('.station.selected, .bay-container.selected').forEach(el => {
+                el.style.opacity = '0.5';
+            });
+            
+            showToast(`Cut ${clipboardData.elements.length} items`, 'success');
+        }
+
+        async function pasteElements() {
+    if (clipboardData.elements.length === 0) {
+        showToast('Nothing to paste', 'warning');
+        return;
+    }
+
+    try {
+        // Calculate the bounding box of the original selection
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        
+        clipboardData.elements.forEach(element => {
+            const pos = element.data.position;
+            minX = Math.min(minX, pos.x);
+            minY = Math.min(minY, pos.y);
+            maxX = Math.max(maxX, pos.x);
+            maxY = Math.max(maxY, pos.y);
+        });
+
+        // Get paste position (either where user right-clicked or a default position)
+        const pastePosition = getContextMenuPosition() || getNextAvailablePosition();
+        
+        // Calculate offset from original top-left to paste position
+        const offsetX = pastePosition.x - minX;
+        const offsetY = pastePosition.y - minY;
+
+        let pastedCount = 0;
+        const createdStations = [];
+        const createdBays = [];
+
+        // Process each element maintaining relative positions
+        for (let i = 0; i < clipboardData.elements.length; i++) {
+            const element = clipboardData.elements[i];
+            
+            // Calculate new position maintaining relative spacing
+            const newX = element.data.position.x + offsetX;
+            const newY = element.data.position.y + offsetY;
+            
+            // Ensure positions are within bounds
+            const boundedX = Math.max(0, Math.min(newX, 2000 - 55));
+            const boundedY = Math.max(0, Math.min(newY, 1500 - 50));
+
+            if (element.type === 'station') {
+                try {
+                    // Create station via API with preserved relative position
+                    const stationData = {
+                        deviceType: currentDeviceType,
+                        position: {
+                            x: boundedX,
+                            y: boundedY
+                        }
+                    };
+
+                    const response = await fetch(`${API_BASE_URL}/stations`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify(stationData)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        createdStations.push(result.data);
+                        pastedCount++;
+                    } else {
+                        console.error('Failed to create station:', response.status);
+                    }
+                } catch (error) {
+                    console.error('Error creating station:', error);
+                }
+            } else if (element.type === 'bay') {
+                try {
+                    // Generate unique name for copied bay
+                    const originalName = element.data.name;
+                    let copyName = `${originalName}_COPY`;
+                    let counter = 1;
+                    
+                    // Check if name already exists and increment counter
+                    while (baysData.find(b => b.name === copyName && b.deviceType === currentDeviceType)) {
+                        copyName = `${originalName}_COPY_${counter}`;
+                        counter++;
+                    }
+
+                    const bayData = {
+                        name: copyName,
+                        deviceType: currentDeviceType,
+                        position: {
+                            x: boundedX,
+                            y: boundedY
+                        }
+                    };
+
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/bays`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${authToken}`
+                            },
+                            body: JSON.stringify(bayData)
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            createdBays.push(result.data);
+                            pastedCount++;
+                        } else {
+                            throw new Error('API creation failed');
+                        }
+                    } catch (apiError) {
+                        // Fallback to local creation
+                        const localBay = {
+                            _id: 'local_' + Date.now() + '_' + i,
+                            name: copyName,
+                            deviceType: currentDeviceType,
+                            position: { x: boundedX, y: boundedY },
+                            size: { width: 55, height: 50 },
+                            color: '#6c757d',
+                            isActive: true,
+                            createdAt: new Date()
+                        };
+                        
+                        baysData.push(localBay);
+                        createdBays.push(localBay);
+                        pastedCount++;
+                    }
+                } catch (error) {
+                    console.error('Error creating bay:', error);
+                }
+            }
+        }
+
+        // If this was a cut operation, delete original items
+        if (clipboardData.type === 'cut') {
+            await deleteSelectedAfterCut();
+            clipboardData = { elements: [], type: null };
+        }
+
+        // Refresh data and UI
+        await loadData(); // Reload from backend to get fresh data
+        
+        // Show success message with pattern info
+        const patternInfo = clipboardData.elements.length > 1 ? ' (pattern preserved)' : '';
+        showToast(`Pasted ${pastedCount} items${patternInfo}`, 'success');
+        hideContextMenu();
+        
+        // Clear context menu position
+        clearContextMenuPosition();
+        
+    } catch (error) {
+        console.error('Error pasting elements:', error);
+        showToast('Error pasting elements', 'error');
+    }
+}
+
+        function duplicateSelected() {
+            copySelected();
+            pasteElements();
+        }
+
+        function editSelectedItem() {
+            if (selectedStations.size === 1) {
+                const stationId = Array.from(selectedStations)[0];
+                const station = stationsData.find(s => s._id === stationId);
+                
+                if (!station) return;
+                
+                // Check if station has number - show appropriate modal
+                if (!station.stationNumber) {
+                    showStationNumberModal(stationId);
+                } else {
+                    showStationModal(stationId);
+                }
+            } else if (selectedBays.size === 1) {
+                const bayId = Array.from(selectedBays)[0];
+                showBayModal(bayId);
+            } else {
+                showToast('Select exactly one item to edit', 'warning');
+            }
+            hideContextMenu();
+        }
+
+        // Delete selected items with API calls
+        async function deleteSelected() {
+            const totalSelected = selectedStations.size + selectedBays.size;
+            
+            if (totalSelected === 0) {
+                showToast('No items selected to delete', 'warning');
+                return;
+            }
+
+            if (confirm(`Are you sure you want to delete ${totalSelected} selected item(s)?`)) {
+                try {
+                    let deletedCount = 0;
+
+                    // Delete stations via API
+                    for (const stationId of selectedStations) {
+                        try {
+                            const response = await fetch(`${API_BASE_URL}/stations/${stationId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': `Bearer ${authToken}`
+                                }
+                            });
+
+                            if (response.ok) {
+                                stationsData = stationsData.filter(s => s._id !== stationId);
+                                deletedCount++;
+                            } else {
+                                console.error(`Failed to delete station ${stationId}`);
+                                // Remove from local data anyway to maintain UI consistency
+                                stationsData = stationsData.filter(s => s._id !== stationId);
+                                deletedCount++;
+                            }
+                        } catch (error) {
+                            console.error(`Error deleting station ${stationId}:`, error);
+                            // Remove from local data anyway
+                            stationsData = stationsData.filter(s => s._id !== stationId);
+                            deletedCount++;
+                        }
+                    }
+
+                    // Delete bays via API or locally
+                    for (const bayId of selectedBays) {
+                        try {
+                            if (bayId.startsWith('local_')) {
+                                // Local bay - just remove from array
+                                baysData = baysData.filter(b => b._id !== bayId);
+                                deletedCount++;
+                            } else {
+                                const response = await fetch(`${API_BASE_URL}/bays/${bayId}`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Authorization': `Bearer ${authToken}`
+                                    }
+                                });
+
+                                if (response.ok) {
+                                    baysData = baysData.filter(b => b._id !== bayId);
+                                    deletedCount++;
+                                } else {
+                                    console.error(`Failed to delete bay ${bayId}`);
+                                    // Remove from local data anyway
+                                    baysData = baysData.filter(b => b._id !== bayId);
+                                    deletedCount++;
+                                }
+                            }
+                        } catch (error) {
+                            console.error(`Error deleting bay ${bayId}:`, error);
+                            // Remove from local data anyway
+                            baysData = baysData.filter(b => b._id !== bayId);
+                            deletedCount++;
+                        }
+                    }
+
+                    showToast(`Deleted ${deletedCount} item(s)`, 'success');
+                    clearSelection();
+                    renderMap();
+                    updateCounters();
+                    hideContextMenu();
+                } catch (error) {
+                    console.error('Error deleting items:', error);
+                    showToast('Error deleting some items', 'error');
+                }
+            }
+        }
+
+        // Show different device maps - Updated to handle navigation
+function showMap(deviceType) {
+    currentDeviceType = deviceType;
+    
+    // Update active nav in sidebar
+    document.querySelectorAll('.sub-nav-link').forEach(a => a.classList.remove('active'));
+    
+    // Find and activate the correct link
+    const links = document.querySelectorAll('.sub-nav-link');
+    links.forEach(link => {
+        const linkText = link.textContent.toLowerCase();
+        if (linkText.includes(deviceType.toLowerCase())) {
+            link.classList.add('active');
+        }
+    });
+    
+    // Update header
+    const emojis = { mouse: '🖱️', keyboard: '⌨️', headset: '🎧' };
+    const titles = { mouse: 'Mouse', keyboard: 'Keyboard', headset: 'Headset' };
+    
+    document.getElementById('deviceEmoji').textContent = emojis[deviceType];
+    document.getElementById('deviceTypeTitle').textContent = titles[deviceType];
+    
+    // Clear selection
+    clearSelection();
+    clipboardData = { elements: [], type: null };
+    
+    // Load data for new device type
+    loadData();
+}
+
+        // Toggle edit mode
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const mapContainer = document.getElementById('mapContainer');
+            const editModeIcon = document.getElementById('editModeIcon');
+            const editModeText = document.getElementById('editModeText');
+            const editControls = document.getElementById('editControls');
+
+            if (isEditMode) {
+                mapContainer.classList.add('edit-mode');
+                editModeIcon.textContent = '👁️';
+                editModeText.textContent = 'View Mode';
+                editControls.classList.add('show');
+                showToast('Edit mode: Multi-select enabled. Click and drag to move items!', 'warning');
+            } else {
+                mapContainer.classList.remove('edit-mode');
+                editModeIcon.textContent = '✏️';
+                editModeText.textContent = 'Edit Mode';
+                editControls.classList.remove('show');
+                clearSelection();
+                updateSelectionInfo();
+                showToast('View mode: Click and drag to move. Double-click to edit.', 'success');
+            }
+
+            renderMap();
+        }
+
+        // Add new station
+        async function addNewStation() {
+            try {
+                const nextPosition = getNextAvailablePosition();
+
+                const stationData = {
+                    deviceType: currentDeviceType,
+                    position: nextPosition
+                };
+
+                const response = await fetch(`${API_BASE_URL}/stations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(stationData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to create station');
+                }
+
+                const result = await response.json();
+                showToast('New station created! Click and drag to move, double-click to assign number.', 'success');
+                await loadData();
+                
+                // Highlight the new station
+                setTimeout(() => {
+                    const newStationEl = document.querySelector(`[data-station-id="${result.data._id}"]`);
+                    if (newStationEl) {
+                        newStationEl.style.animation = 'pulse 2s ease-in-out';
+                        setTimeout(() => {
+                            newStationEl.style.animation = '';
+                        }, 2000);
+                    }
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error creating station:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Add new bay
+        async function addNewBay() {
+            const bayName = prompt('Enter bay name (e.g., 1A, 1B, 2A):');
+            
+            if (!bayName) return;
+            
+            const trimmedName = bayName.trim().toUpperCase();
+            
+            // Check if bay already exists
+            const existingBay = baysData.find(bay => 
+                bay.name === trimmedName && bay.deviceType === currentDeviceType
+            );
+            
+            if (existingBay) {
+                showToast(`Bay "${trimmedName}" already exists for ${currentDeviceType}`, 'error');
+                return;
+            }
+
+            try {
+                const nextPosition = getNextAvailablePosition();
+
+                const bayData = {
+                    name: trimmedName,
+                    deviceType: currentDeviceType,
+                    position: nextPosition,
+                    size: { width: 55, height: 50 }
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bays`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify(bayData)
+                    });
+
+                    if (response.ok) {
+                        showToast(`Created bay "${trimmedName}"! Click and drag to move, double-click to rename.`, 'success');
+                        await loadData();
+                        return;
+                    } else if (response.status === 400) {
+                        const errorData = await response.json();
+                        if (errorData.error && errorData.error.includes('already exists')) {
+                            showToast(`Bay "${trimmedName}" already exists for ${currentDeviceType}`, 'error');
+                            return;
+                        } else {
+                            throw new Error(errorData.error || 'Failed to create bay');
+                        }
+                    } else {
+                        throw new Error('API not available');
+                    }
+                } catch (apiError) {
+                    if (apiError.message.includes('already exists')) {
+                        showToast(`Bay "${trimmedName}" already exists for ${currentDeviceType}`, 'error');
+                        return;
+                    }
+                    
+                    // Create bay locally as fallback
+                    const localBay = {
+                        _id: 'local_' + Date.now(),
+                        name: trimmedName,
+                        deviceType: currentDeviceType,
+                        position: nextPosition,
+                        size: { width: 55, height: 50 },
+                        color: '#6c757d',
+                        isActive: true,
+                        createdAt: new Date()
+                    };
+                    
+                    baysData.push(localBay);
+                    showToast(`Created bay "${trimmedName}" (local)! Click and drag to move, double-click to rename.`, 'success');
+                    renderMap();
+                }
+
+            } catch (error) {
+                console.error('Error creating bay:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Zoom functionality
+        function zoomIn() {
+            currentZoom = Math.min(currentZoom * 1.2, 3);
+            updateTransform();
+            updateZoomLevel();
+        }
+
+        function zoomOut() {
+            currentZoom = Math.max(currentZoom / 1.2, 0.1);
+            updateTransform();
+            updateZoomLevel();
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.max(0.1, Math.min(3, currentZoom * delta));
+            
+            const rect = e.currentTarget.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const zoomPoint = {
+                x: (mouseX - panOffset.x) / currentZoom,
+                y: (mouseY - panOffset.y) / currentZoom
+            };
+            
+            currentZoom = newZoom;
+            
+            panOffset.x = mouseX - zoomPoint.x * currentZoom;
+            panOffset.y = mouseY - zoomPoint.y * currentZoom;
+            
+            updateTransform();
+            updateZoomLevel();
+        }
+
+        function updateTransform() {
+            const productionFloor = document.getElementById('productionFloor');
+            productionFloor.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${currentZoom})`;
+        }
+
+        function updateZoomLevel() {
+            document.getElementById('zoomLevel').textContent = `${Math.round(currentZoom * 100)}%`;
+        }
+
+        // Keyboard shortcuts
+        function handleKeyboard(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            // Handle modal keyboard shortcuts
+            if (document.getElementById('stationModal').style.display === 'block') {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveStationData();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeStationModal();
+                }
+                return;
+            }
+            
+            if (document.getElementById('stationNumberModal').style.display === 'block') {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveStationNumberOnly();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeStationNumberModal();
+                }
+                return;
+            }
+            
+            if (document.getElementById('bayModal').style.display === 'block') {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveBayData();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeBayModal();
+                }
+                return;
+            }
+            
+            switch(e.key.toLowerCase()) {
+                case 'e':
+                    if (!e.ctrlKey && !e.metaKey) {
+                        toggleEditMode();
+                    }
+                    break;
+                case 'a':
+                    if ((e.ctrlKey || e.metaKey) && isEditMode) {
+                        e.preventDefault();
+                        selectAll();
+                    }
+                    break;
+                case 'c':
+                    if ((e.ctrlKey || e.metaKey) && isEditMode) {
+                        e.preventDefault();
+                        copySelected();
+                    }
+                    break;
+                case 'x':
+                    if ((e.ctrlKey || e.metaKey) && isEditMode) {
+                        e.preventDefault();
+                        cutSelected();
+                    }
+                    break;
+                case 'v':
+                    if ((e.ctrlKey || e.metaKey) && isEditMode) {
+                        e.preventDefault();
+                        pasteElements();
+                    }
+                    break;
+                case 'delete':
+                case 'backspace':
+                    if (isEditMode && (selectedStations.size > 0 || selectedBays.size > 0)) {
+                        e.preventDefault();
+                        deleteSelected();
+                    }
+                    break;
+                case 'escape':
+                    if (isEditingInline) {
+                        // Cancel any ongoing inline edit
+                        const input = document.querySelector('.inline-edit-input, .bay-inline-edit-input');
+                        if (input) {
+                            input.blur();
+                        }
+                    } else if (isEditMode) {
+                        clearSelection();
+                        updateVisuals();
+                        updateSelectionInfo();
+                    }
+                    hideContextMenu();
+                    break;
+                case '+':
+                case '=':
+                    e.preventDefault();
+                    zoomIn();
+                    break;
+                case '-':
+                    e.preventDefault();
+                    zoomOut();
+                    break;
+                case '0':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        currentZoom = 1;
+                        panOffset = { x: 0, y: 0 };
+                        updateTransform();
+                        updateZoomLevel();
+                    }
+                    break;
+            }
+        }
+
+        // Update counters
+        function updateCounters() {
+            let registeredCount = 0;
+            let emptyCount = 0;
+            let unnumberedCount = 0;
+            
+            stationsData.forEach(station => {
+                if (!station.stationNumber) {
+                    unnumberedCount++;
+                } else if (station.device && station.device.serialNumber) {
+                    registeredCount++;
+                } else {
+                    emptyCount++;
+                }
+            });
+
+            document.getElementById('registeredCount').textContent = registeredCount;
+            document.getElementById('emptyCount').textContent = emptyCount;
+            document.getElementById('unnumberedCount').textContent = unnumberedCount;
+        }
+
+        // Helper function to find next available position
+        function getNextAvailablePosition() {
+            const occupied = new Set();
+            
+            stationsData.forEach(station => {
+                const key = `${Math.round(station.position.x / 60)}_${Math.round(station.position.y / 60)}`;
+                occupied.add(key);
+            });
+            
+            baysData.forEach(bay => {
+                const key = `${Math.round(bay.position.x / 60)}_${Math.round(bay.position.y / 60)}`;
+                occupied.add(key);
+            });
+
+            for (let y = 0; y < 50; y++) {
+                for (let x = 0; x < 50; x++) {
+                    const key = `${x}_${y}`;
+                    if (!occupied.has(key)) {
+                        return { x: x * 60, y: y * 60 };
+                    }
+                }
+            }
+
+            return { x: 0, y: 0 };
+        }
+
+        // Utility functions
+        function saveLayout() {
+            showToast('Layout saved successfully!', 'success');
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.style.display = 'block';
+
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 4000);
+        }
+
+        // Standardized logout function
+function logout() {
+    const token = localStorage.getItem('authToken');
+    
+    // Call logout endpoint
+    if (token) {
+        fetch(window.INVENTORY_CONFIG.API_BASE_URL + '/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .catch(error => console.error('Logout error:', error));
+    }
+    
+    // Clear local storage
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('username');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userDepartment');
+    
+    // Redirect to login
+    window.location.href = 'login.html';
+}
+        // Standardized Navigation Management
+// Standardized Navigation Management
+function initializeNavigation() {
+    // Get current page from URL
+    const currentPage = window.location.pathname.split('/').pop() || 'dashboard.html';
+    
+    // Remove active class from all nav items
+    document.querySelectorAll('#sidebar a').forEach(link => {
+        link.classList.remove('active');
+    });
+    
+    // Hide all sub-navs
+    document.querySelectorAll('.sub-nav').forEach(subNav => {
+        subNav.classList.remove('show');
+    });
+    
+    // Set active state based on current page
+    if (currentPage === 'dashboard.html' || currentPage === '' || currentPage === '/') {
+        document.getElementById('nav-home').classList.add('active');
+    } else if (currentPage === 'production-map.html') {
+        document.getElementById('nav-production').classList.add('active');
+        
+        // Show production sub-nav
+        const productionSubNav = document.getElementById('production-sub-nav');
+        if (productionSubNav) {
+            productionSubNav.classList.add('show');
+        }
+        
+        // Handle device type from URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceType = urlParams.get('device') || 'mouse';
+        
+        // Set active sub-nav
+        document.querySelectorAll('.sub-nav-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.href.includes(`device=${deviceType}`)) {
+                link.classList.add('active');
+            }
+        });
+    } else if (currentPage === 'dailyAudit.html') {
+        document.getElementById('nav-audit').classList.add('active');
+    }
+}
+
+// Initialize navigation when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeNavigation();
+});
+    </script>
+</body>
+</html>
+                           

@@ -1,0 +1,2995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Audit</title>
+    <script src="config.js">
+        (function() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Verify token with backend
+    fetch(window.INVENTORY_CONFIG.API_BASE_URL + '/auth/me', {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Invalid token');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Update username in all pages consistently
+        if (data.data && data.data.user) {
+            localStorage.setItem('username', data.data.user.username);
+            localStorage.setItem('userRole', data.data.user.role);
+            localStorage.setItem('userEmail', data.data.user.email);
+            localStorage.setItem('userSite', data.data.user.site || '');
+            localStorage.setItem('userDepartment', data.data.user.department || '');
+            
+            // Update the username display immediately
+            updateUsernameDisplay(data.data.user.username);
+            updateSiteDisplay(data.data.user.site);
+        }
+    })
+    .catch(error => {
+        console.error('Auth verification failed:', error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('username');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userDepartment');
+        localStorage.removeItem('userSite');
+        window.location.href = 'login.html';
+    });
+
+    // Function to update username display
+    function updateUsernameDisplay(username) {
+        const usernameElement = document.getElementById('username');
+        if (usernameElement) {
+            usernameElement.textContent = username;
+        }
+    }
+
+    // Also set username from localStorage immediately (for faster display)
+    const storedUsername = localStorage.getItem('username');
+    if (storedUsername) {
+        updateUsernameDisplay(storedUsername);
+    }
+})();
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Standardized Sidebar Styles */
+#sidebar {
+    width: 250px;
+    background-color: #2c3e50;
+    color: white;
+    padding: 20px;
+    height: 100vh;
+    overflow-y: auto;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 100;
+}
+
+#sidebar h1 {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #34495e;
+}
+
+#sidebar a {
+    display: block;
+    color: #ecf0f1;
+    text-decoration: none;
+    padding: 15px 20px;
+    margin: 5px -20px;
+    transition: all 0.3s ease;
+    border-radius: 5px;
+}
+
+#sidebar a:hover {
+    background-color: #34495e;
+    padding-left: 30px;
+}
+
+#sidebar a.active {
+    background-color: #3498db;
+}
+
+/* Sub Navigation */
+.sub-nav {
+    margin-left: 20px;
+    margin-top: 10px;
+    border-left: 2px solid #34495e;
+    padding-left: 10px;
+}
+
+.sub-nav-link {
+    font-size: 0.9rem !important;
+    padding: 10px 15px !important;
+    margin: 2px -15px !important;
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+}
+
+.sub-nav-link.active {
+    background-color: #27ae60 !important;
+}
+
+        /* Main Content */
+        #main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        /* Header */
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        #header h2 {
+            font-size: 2rem;
+            color: #2c3e50;
+        }
+
+        /* Search Bar */
+        .search-container {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 30px;
+        }
+
+        .search-bar {
+            width: 100%;
+            padding: 12px 20px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-bar:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+
+        /* Button Styles */
+        .btn {
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background-color: #2c3e50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #34495e;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #219a52;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        /* Controls Section Layout */
+        .controls-section {
+            display: flex; 
+            gap: 20px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        /* Add Button - keeping original style but enhanced */
+        .add-audit-btn {
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .add-audit-btn:hover {
+            background-color: #34495e;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Action buttons container */
+        .action-buttons-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Month Selector Styles */
+        .month-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #monthSelector {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            background-color: white;
+            cursor: pointer;
+            min-width: 180px;
+            transition: all 0.3s ease;
+        }
+
+        #monthSelector:hover {
+            border-color: #3498db;
+        }
+
+        #monthSelector:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+
+        .month-nav-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .month-nav-btn:hover {
+            background-color: #2c7fb8;
+            transform: scale(1.05);
+        }
+
+        .month-nav-btn:active {
+            transform: scale(0.95);
+        }
+
+        .month-nav-btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Grid Container */
+        .audit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        /* Audit Cards */
+        .audit-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            height: 200px;
+            position: relative;
+        }
+
+        .audit-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        .audit-card.expanded {
+            height: auto;
+            grid-column: 1 / -1;
+            cursor: default;
+        }
+
+        .audit-card-header {
+            padding: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            position: relative;
+        }
+
+        .audit-date {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .audit-summary {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            gap: 5px;
+        }
+
+        .summary-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .summary-number {
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+
+        .summary-label {
+            font-size: 0.7rem;
+            opacity: 0.9;
+            margin-top: 5px;
+            line-height: 1.1;
+        }
+
+        /* Table Container */
+        .table-container {
+            display: none;
+            padding: 20px;
+            max-height: 800px;
+            overflow-x: auto;
+            overflow-y: auto;
+        }
+
+        .audit-card.expanded .table-container {
+            display: block;
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            min-width: 1200px;
+            margin-bottom: 20px;
+        }
+
+        table th {
+            background-color: #34495e;
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid #2c3e50;
+        }
+
+        table td {
+            padding: 8px 4px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        table tr:hover {
+            background-color: #e3f2fd;
+        }
+
+        /* Input Styles */
+        .count-input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .count-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 3px rgba(52, 152, 219, 0.3);
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Readonly inputs */
+        .count-input[readonly] {
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+        }
+
+        /* Close Button */
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .audit-card.expanded .close-btn {
+            opacity: 1;
+        }
+
+        .close-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: none;
+            gap: 10px;
+        }
+
+        .audit-card.expanded .action-buttons {
+            display: flex;
+        }
+
+        .save-btn, .cancel-btn, .delete-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .save-btn {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .save-btn:hover {
+            background-color: #219a52;
+        }
+
+        .cancel-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .cancel-btn:hover {
+            background-color: #5a6268;
+        }
+
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+
+        /* Section Styles */
+        .section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+        }
+
+        .section-title {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            text-align: center;
+            font-weight: 600;
+            margin: -20px -20px 20px -20px;
+            border-radius: 6px 6px 0 0;
+            font-size: 16px;
+        }
+
+        .section-title.missing {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        .section-title.other {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        }
+
+        .section-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .section-table th {
+            background-color: #34495e;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid #2c3e50;
+        }
+
+        .section-table td {
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+            background-color: white;
+        }
+
+        .section-table tr:hover td {
+            background-color: #e3f2fd;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border: none;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 800px;
+            text-align: left;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal p {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+
+        /* Department Management Styles */
+        .department-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .department-info {
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .department-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .department-label {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .department-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .drag-handle {
+            cursor: move;
+            color: #6c757d;
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .drag-handle:hover {
+            color: #2c3e50;
+        }
+
+        /* Badge styles for logs */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-secondary {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            animation: slideIn 0.3s ease;
+            z-index: 1100;
+        }
+
+        .toast.success {
+            background-color: #27ae60;
+        }
+
+        .toast.error {
+            background-color: #e74c3c;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            #main-content {
+                margin-left: 0;
+            }
+
+            .audit-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .count-input {
+                width: 50px;
+            }
+
+            /* Stack controls vertically on mobile */
+            .controls-section {
+                flex-direction: column;
+                align-items: stretch !important;
+                gap: 15px !important;
+                padding: 15px;
+            }
+
+            .search-container {
+                max-width: none !important;
+                margin-bottom: 0 !important;
+            }
+
+            .month-selector {
+                justify-content: center;
+            }
+
+            .action-buttons-container {
+                justify-content: center;
+            }
+
+            .add-audit-btn, .btn {
+                flex: 1;
+                min-width: 0;
+                justify-content: center;
+            }
+
+            /* Adjust summary for mobile */
+            .summary-number {
+                font-size: 1.2rem !important;
+            }
+
+            .summary-label {
+                font-size: 0.6rem !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div id="sidebar">
+    <h1>Hi, <span id="username">User</span>!</h1>
+    <div style="font-size: 0.9rem; color: #bdc3c7; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #34495e;">
+        📍 <span id="userSite">Site</span>
+    </div>
+    <a href="dashboard.html" id="nav-home">🏠 Home</a>
+    <a href="production-map.html" id="nav-production">
+    🗺️ Production Map
+</a>
+<div class="sub-nav" id="production-sub-nav" style="margin-left: 20px; margin-top: 10px; border-left: 2px solid #34495e; padding-left: 10px; display: none;">
+    <a href="production-map.html?device=mouse" class="sub-nav-link">
+        <span>🖱️</span> Mouse
+    </a>
+    <a href="production-map.html?device=keyboard" class="sub-nav-link">
+        <span>⌨️</span> Keyboard
+    </a>
+    <a href="production-map.html?device=headset" class="sub-nav-link">
+        <span>🎧</span> Headset
+            </a>
+        </div>
+    </a>
+    <a href="dailyAudit.html" id="nav-audit">📋 Daily Audit</a>
+    <a href="#" id="nav-monitoring">📊 Monitoring</a>
+    <a href="#" id="nav-faqs">❓ FAQs</a>
+    <a href="#" onclick="logout()" id="nav-logout">🚪 Log off</a>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content">
+        <!-- Header -->
+        <div id="header">
+            <h2>Daily Audit</h2>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="controls-section">
+            <!-- Search Bar -->
+            <div class="search-container" style="margin-bottom: 0;">
+                <input type="text" class="search-bar" placeholder="Search audits..." id="searchBar">
+            </div>
+
+            <!-- Month Selector -->
+            <div class="month-selector">
+                <button class="month-nav-btn" onclick="changeMonth(-1)" id="prevMonth">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
+                <select id="monthSelector" onchange="handleMonthChange()">
+                    <option value="0">January 2025</option>
+                    <option value="1">February 2025</option>
+                    <option value="2">March 2025</option>
+                    <option value="3">April 2025</option>
+                    <option value="4">May 2025</option>
+                    <option value="5">June 2025</option>
+                    <option value="6">July 2025</option>
+                    <option value="7">August 2025</option>
+                    <option value="8">September 2025</option>
+                    <option value="9">October 2025</option>
+                    <option value="10">November 2025</option>
+                    <option value="11">December 2025</option>
+                </select>
+                <button class="month-nav-btn" onclick="changeMonth(1)" id="nextMonth">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons-container">
+                <!-- Add New Audit Button -->
+                <button class="add-audit-btn" onclick="addNewAudit()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14m-7-7h14"/>
+                    </svg>
+                    Add New Audit
+                </button>
+
+                <!-- Manage Departments Button -->
+                <button class="btn btn-warning" onclick="openDepartmentModal()" style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                    </svg>
+                    Manage Departments
+                </button>
+
+                <!-- Logs Button -->
+                <button class="btn btn-secondary" onclick="openLogsModal()" style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14,2 14,8 20,8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10,9 9,9 8,9"/>
+                    </svg>
+                    Logs
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="spinner" style="display: none;"></div>
+
+        <!-- Audit Grid -->
+        <div class="audit-grid" id="auditGrid">
+            <!-- Audits will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Generated Report Modal -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <h3>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="9" y1="9" x2="10" y2="9"/>
+                    <line x1="9" y1="13" x2="15" y2="13"/>
+                    <line x1="9" y1="17" x2="15" y2="17"/>
+                </svg>
+                Generated Audit Report
+            </h3>
+            
+            <!-- Report Content -->
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; max-height: 500px; overflow-y: auto;">
+                <pre id="reportContent" style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.6; margin: 0; color: #2c3e50;"></pre>
+            </div>
+
+            <!-- Report Stats -->
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #2196f3;">
+                <h4 style="margin-bottom: 10px; color: #1976d2;">Report Summary</h4>
+                <div id="reportStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    <!-- Stats will be populated here -->
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-success" onclick="downloadReport()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7,10 12,15 17,10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download Report
+                </button>
+                <button class="btn btn-secondary" onclick="closeReportModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <h3>⚠️ Confirm Deletion</h3>
+            <p>Are you sure you want to delete this audit? This action cannot be undone.</p>
+            <div class="modal-buttons">
+                <button class="btn btn-danger" onclick="deleteAudit()">Delete</button>
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Department Management Modal -->
+    <div id="departmentModal" class="modal">
+        <div class="modal-content">
+            <h3>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                </svg>
+                Manage Departments
+            </h3>
+            
+            <!-- Add New Department Form -->
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+                <h4 style="margin-bottom: 15px; color: #2c3e50;">Add New Department</h4>
+                <div style="display: flex; gap: 15px; align-items: end;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="newDeptName">Department Name</label>
+                        <input type="text" id="newDeptName" placeholder="e.g., thirdprod">
+                    </div>
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="newDeptLabel">Department Label</label>
+                        <input type="text" id="newDeptLabel" placeholder="e.g., 3RD PROD">
+                    </div>
+                    <button class="btn btn-success" onclick="addDepartment()">Add Department</button>
+                </div>
+            </div>
+
+            <!-- Existing Departments -->
+            <h4 style="margin-bottom: 15px; color: #2c3e50;">Existing Departments</h4>
+            <div id="departmentsList">
+                <!-- Departments will be loaded here -->
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="closeDepartmentModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Department Modal -->
+    <div id="editDepartmentModal" class="modal">
+        <div class="modal-content">
+            <h3>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Edit Department
+            </h3>
+            
+            <div class="form-group">
+                <label for="editDeptName">Department Name</label>
+                <input type="text" id="editDeptName">
+            </div>
+            
+            <div class="form-group">
+                <label for="editDeptLabel">Department Label</label>
+                <input type="text" id="editDeptLabel">
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-success" onclick="saveEditDepartment()">Save Changes</button>
+                <button class="btn btn-secondary" onclick="closeEditDepartmentModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Modal -->
+    <div id="logsModal" class="modal">
+        <div class="modal-content" style="max-width: 1200px;">
+            <h3>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10,9 9,9 8,9"/>
+                </svg>
+                Audit Change Logs
+            </h3>
+            
+            <!-- Logs Filters -->
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+                <h4 style="margin-bottom: 15px; color: #2c3e50;">Filter Logs</h4>
+                
+                <!-- Quick Date Selection -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: 600; color: #2c3e50; margin-bottom: 8px; display: block;">Quick Select Audit Date:</label>
+                    <div id="quickDateButtons" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <!-- Quick date buttons will be populated here -->
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div class="form-group" style="margin-bottom: 0; min-width: 150px;">
+                        <label for="logsAuditDate">Audit Date</label>
+                        <input type="date" id="logsAuditDate" onchange="filterLogs()">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; min-width: 120px;">
+                        <label for="logsAction">Action Type</label>
+                        <select id="logsAction" onchange="filterLogs()">
+                            <option value="">All Actions</option>
+                            <option value="create">Create Audit</option>
+                            <option value="update">Update Audit</option>
+                            <option value="delete">Delete Audit</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; min-width: 120px;">
+                        <label for="logsItem">Item</label>
+                        <select id="logsItem" onchange="filterLogs()">
+                            <option value="">All Items</option>
+                            <option value="CPU">CPU</option>
+                            <option value="Monitor">Monitor</option>
+                            <option value="Keyboard">Keyboard</option>
+                            <option value="Mouse">Mouse</option>
+                            <option value="Headset">Headset</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: end;">
+                        <button class="btn btn-secondary" onclick="clearLogsFilter()">Clear All Filters</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs Table -->
+            <div style="max-height: 400px; overflow-y: auto;">
+                <!-- Filter Status Indicator -->
+                <div id="filterStatus" style="background-color: #e3f2fd; padding: 10px; margin-bottom: 15px; border-radius: 5px; border-left: 4px solid #2196f3; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span id="filterStatusText" style="color: #1976d2; font-weight: 600;"></span>
+                        <button onclick="clearLogsFilter()" style="background: none; border: none; color: #1976d2; cursor: pointer; text-decoration: underline;">Clear Filters</button>
+                    </div>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead style="position: sticky; top: 0; background-color: #34495e;">
+                        <tr>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">Timestamp</th>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">Action</th>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">Audit Date</th>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">Item</th>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">Field</th>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">Old Value</th>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">New Value</th>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">Change</th>
+                            <th style="padding: 10px; color: white; border: 1px solid #2c3e50;">Impact</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTableBody">
+                        <!-- Logs will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Loading indicator -->
+            <div id="logsLoading" style="text-align: center; padding: 20px; display: none;">
+                <div class="spinner"></div>
+                <p>Loading logs...</p>
+            </div>
+
+            <!-- Empty state -->
+            <div id="logsEmpty" style="text-align: center; padding: 40px; color: #666; display: none;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="opacity: 0.5; margin-bottom: 15px;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                </svg>
+                <p>No logs found for the selected criteria</p>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-success" onclick="generateReport()">Generate Report</button>
+                <button class="btn btn-primary" onclick="exportLogs()">Export Logs</button>
+                <button class="btn btn-secondary" onclick="closeLogsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE_URL = window.INVENTORY_CONFIG ? window.INVENTORY_CONFIG.API_BASE_URL : 'http://localhost:5000/api';
+        let authToken = localStorage.getItem('authToken') || '';
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let auditsData = [];
+        let departmentsData = [];
+        let logsData = [];
+        let filteredLogsData = []; // Track currently displayed/filtered logs
+        let auditToDelete = null;
+        let editingDepartment = null;
+        let originalAuditData = {}; // Store original data for change detection
+
+        // Items configuration
+        const MAIN_ITEMS = ['CPU', 'Monitor', 'Keyboard', 'Mouse', 'Headset'];
+        const OTHER_ITEMS = ['Laptop', 'Webcam', 'RAM', 'SSD'];
+        const MISSING_ITEMS = ['CPU', 'Monitor', 'Keyboard', 'Mouse', 'Headset'];
+
+        // Initialize
+        window.onload = function() {
+            checkAuth();
+            setCurrentMonth();
+            loadDepartments();
+        };
+
+        // Check authentication
+        // Check authentication - Updated version  
+// Check authentication with better error handling
+function checkAuth() {
+    console.log('Checking authentication...');
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.log('No token found, redirecting to login');
+        window.location.href = 'login.html';
+        return;
+    }
+
+    authToken = token; // Set the global authToken variable
+
+    // Set username immediately from localStorage
+    const storedUsername = localStorage.getItem('username') || 'User';
+    const storedSite = localStorage.getItem('userSite') || 'Unknown';
+    
+    document.getElementById('username').textContent = storedUsername;
+    document.getElementById('userSite').textContent = storedSite;
+
+    // Verify token with backend
+    fetch(`${API_BASE_URL}/auth/me`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Authentication successful:', data);
+        isAuthenticated = true;
+        
+        if (data.data && data.data.user) {
+            // Update stored user data
+            localStorage.setItem('username', data.data.user.username);
+            localStorage.setItem('userRole', data.data.user.role);
+            localStorage.setItem('userEmail', data.data.user.email);
+            localStorage.setItem('userSite', data.data.user.site || '');
+            localStorage.setItem('userDepartment', data.data.user.department || '');
+            
+            // Update display
+            document.getElementById('username').textContent = data.data.user.username;
+            document.getElementById('userSite').textContent = data.data.user.site || 'Unknown';
+        }
+        
+        // Initialize the rest of the application
+        setCurrentMonth();
+        loadDepartments();
+    })
+    .catch(error => {
+        console.error('Auth verification failed:', error);
+        showError('Authentication failed. Please login again.');
+        
+        // Clear invalid token and redirect
+        setTimeout(() => {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }, 2000);
+    });
+}
+// Update site display
+function updateSiteDisplay() {
+    const userSite = localStorage.getItem('userSite') || 'Unknown';
+    const siteElement = document.getElementById('userSite');
+    if (siteElement) {
+        siteElement.textContent = userSite;
+    }
+}
+
+// Call this in your auth script
+updateSiteDisplay();
+
+        // Set current month in selector
+        function setCurrentMonth() {
+            document.getElementById('monthSelector').value = currentMonth;
+        }
+
+        // Load departments from backend
+        async function loadDepartments() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/departments?active=true`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch departments');
+                }
+
+                const data = await response.json();
+                departmentsData = data.data || [];
+                
+                // If no departments exist, initialize with defaults
+                if (departmentsData.length === 0) {
+                    await initializeDefaultDepartments();
+                } else {
+                    loadMonthData();
+                }
+            } catch (error) {
+                console.error('Error loading departments:', error);
+                showToast('Error loading departments', 'error');
+                departmentsData = [];
+                loadMonthData();
+            }
+        }
+
+        // Initialize default departments
+        async function initializeDefaultDepartments() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/departments/initialize`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to initialize departments');
+                }
+
+                showToast('Default departments initialized', 'success');
+                loadDepartments();
+            } catch (error) {
+                console.error('Error initializing departments:', error);
+                showToast('Error initializing departments', 'error');
+            }
+        }
+
+        // Load audit data for current month
+        async function loadMonthData() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/audits?month=${currentMonth}&year=${currentYear}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch audits');
+                }
+
+                const data = await response.json();
+                auditsData = data.data || [];
+                displayAudits();
+            } catch (error) {
+                console.error('Error loading audits:', error);
+                showToast('Error loading audits', 'error');
+                auditsData = [];
+                displayAudits();
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Display audits
+        function displayAudits() {
+            const auditGrid = document.getElementById('auditGrid');
+            auditGrid.innerHTML = '';
+
+            if (auditsData.length === 0) {
+                auditGrid.innerHTML = '<p style="text-align: center; color: #666;">No audits found for this month</p>';
+                return;
+            }
+
+            auditsData.forEach(audit => {
+                const card = createAuditCard(audit);
+                auditGrid.appendChild(card);
+            });
+        }
+
+        // Create audit card
+        function createAuditCard(audit) {
+            const date = new Date(audit.date);
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            const card = document.createElement('div');
+            card.className = 'audit-card';
+            card.setAttribute('onclick', 'toggleCard(this)');
+            card.setAttribute('data-id', audit._id || '');
+            card.setAttribute('data-date', audit.date);
+
+            // Calculate individual item totals
+            const itemTotals = {};
+            MAIN_ITEMS.forEach(item => {
+                const itemData = audit.items?.[item] || {};
+                itemTotals[item] = itemData.overallTotal || 0;
+            });
+
+            card.innerHTML = `
+                <div class="audit-card-header">
+                    <button class="close-btn" onclick="closeCard(event, this)">×</button>
+                    <div class="audit-date">${formattedDate}</div>
+                    <div class="audit-summary">
+                        <div class="summary-item">
+                            <div class="summary-number">${itemTotals.CPU.toLocaleString()}</div>
+                            <div class="summary-label">CPU</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number">${itemTotals.Monitor.toLocaleString()}</div>
+                            <div class="summary-label">Monitor</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number">${itemTotals.Keyboard.toLocaleString()}</div>
+                            <div class="summary-label">Keyboard</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number">${itemTotals.Mouse.toLocaleString()}</div>
+                            <div class="summary-label">Mouse</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number">${itemTotals.Headset.toLocaleString()}</div>
+                            <div class="summary-label">Headset</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container" onclick="event.stopPropagation()">
+                    ${createTableHTML(audit)}
+                    <div class="action-buttons">
+                        <button class="save-btn" onclick="saveAudit(this)">Save</button>
+                        <button class="cancel-btn" onclick="cancelEdit(this)">Cancel</button>
+                        <button class="delete-btn" onclick="confirmDeleteAudit(this)">Delete</button>
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        // Calculate total units
+        function calculateTotalUnits(audit) {
+            let total = 0;
+            MAIN_ITEMS.forEach(item => {
+                const itemData = audit.items?.[item] || {};
+                total += itemData.overallTotal || 0;
+            });
+            return total;
+        }
+
+        // Calculate total defectives
+        function calculateTotalDefectives(audit) {
+            let total = 0;
+            MAIN_ITEMS.forEach(item => {
+                const itemData = audit.items?.[item] || {};
+                total += itemData.defectives || 0;
+            });
+            return total;
+        }
+
+        // Create table HTML with dynamic departments
+        function createTableHTML(audit) {
+            let tableHTML = `
+                <h3 style="margin-bottom: 15px; color: #2c3e50;">Main Items</h3>
+                <table>
+                    <thead>
+                        <tr>`;
+            
+            // Department headers
+            departmentsData.forEach(dept => {
+                tableHTML += `<th colspan="2">${dept.label}</th>`;
+            });
+            
+            tableHTML += `
+                            <th colspan="2">TOTAL</th>
+                            <th colspan="2">STOCK</th>
+                            <th colspan="2">DEFECTIVES</th>
+                            <th colspan="2">OVERALL TOTAL</th>
+                        </tr>
+                        <tr>`;
+            
+            // Sub headers
+            departmentsData.forEach(() => {
+                tableHTML += `<th>ITEM</th><th>COUNT</th>`;
+            });
+            tableHTML += `
+                            <th>ITEM</th><th>COUNT</th>
+                            <th>ITEM</th><th>COUNT</th>
+                            <th>ITEM</th><th>COUNT</th>
+                            <th>ITEM</th><th>COUNT</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            // Main items
+            MAIN_ITEMS.forEach(item => {
+                const itemData = audit.items?.[item] || {};
+                tableHTML += '<tr>';
+                
+                departmentsData.forEach(dept => {
+                    tableHTML += `<td>${item}</td>`;
+                    tableHTML += `<td><input type="number" class="count-input" value="${itemData[dept.name] || 0}" 
+                                    data-item="${item}" data-field="${dept.name}" 
+                                    onchange="updateTotals(this)" onclick="event.stopPropagation()" min="0"></td>`;
+                });
+
+                // Total, Stock, Defectives, Overall Total
+                tableHTML += `<td>${item}</td>`;
+                tableHTML += `<td><input type="number" class="count-input" value="${itemData.total || 0}" 
+                                data-item="${item}" data-field="total" onclick="event.stopPropagation()" readonly></td>`;
+                tableHTML += `<td>${item}</td>`;
+                tableHTML += `<td><input type="number" class="count-input" value="${itemData.stock || 0}" 
+                                data-item="${item}" data-field="stock" 
+                                onchange="updateTotals(this)" onclick="event.stopPropagation()" min="0"></td>`;
+                tableHTML += `<td>${item}</td>`;
+                tableHTML += `<td><input type="number" class="count-input" value="${itemData.defectives || 0}" 
+                                data-item="${item}" data-field="defectives" 
+                                onchange="updateTotals(this)" onclick="event.stopPropagation()" min="0"></td>`;
+                tableHTML += `<td>${item}</td>`;
+                tableHTML += `<td><input type="number" class="count-input" value="${itemData.overallTotal || 0}" 
+                                data-item="${item}" data-field="overallTotal" onclick="event.stopPropagation()" readonly></td>`;
+                
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += `</tbody></table>`;
+
+            // Other Items Section
+            tableHTML += `
+                <div class="section">
+                    <div class="section-title other">OTHER ITEMS</div>
+                    <table class="section-table">
+                        <thead>
+                            <tr>
+                                ${OTHER_ITEMS.map(item => `<th>${item.toUpperCase()}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                ${OTHER_ITEMS.map(item => `
+                                    <td><input type="number" class="count-input" value="${audit.otherItems?.[item] || 0}" 
+                                        data-other="${item}" onclick="event.stopPropagation()" min="0"></td>
+                                `).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>`;
+
+            // Missing Items Section
+            tableHTML += `
+                <div class="section">
+                    <div class="section-title missing">MISSING ITEMS</div>
+                    <table class="section-table">
+                        <thead>
+                            <tr>
+                                ${MISSING_ITEMS.map(item => `<th>${item.toUpperCase()}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                ${MISSING_ITEMS.map(item => `
+                                    <td><input type="number" class="count-input" value="${audit.missingItems?.[item] || 0}" 
+                                        data-missing="${item}" onclick="event.stopPropagation()" min="0"></td>
+                                `).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>`;
+
+            return tableHTML;
+        }
+
+        // Update totals when input changes
+        function updateTotals(input) {
+            const card = input.closest('.audit-card');
+            const item = input.dataset.item;
+            
+            if (!item) return;
+
+            let total = 0;
+            
+            // Calculate department totals
+            departmentsData.forEach(dept => {
+                const deptInput = card.querySelector(`input[data-item="${item}"][data-field="${dept.name}"]`);
+                if (deptInput) {
+                    total += parseInt(deptInput.value) || 0;
+                }
+            });
+
+            // Update total field
+            const totalInput = card.querySelector(`input[data-item="${item}"][data-field="total"]`);
+            if (totalInput) {
+                totalInput.value = total;
+            }
+
+            // Get stock and defectives values
+            const stockInput = card.querySelector(`input[data-item="${item}"][data-field="stock"]`);
+            const defectivesInput = card.querySelector(`input[data-item="${item}"][data-field="defectives"]`);
+            const stock = parseInt(stockInput?.value) || 0;
+            const defectives = parseInt(defectivesInput?.value) || 0;
+
+            // Update overall total (total + stock + defectives)
+            const overallTotalInput = card.querySelector(`input[data-item="${item}"][data-field="overallTotal"]`);
+            if (overallTotalInput) {
+                overallTotalInput.value = total + stock + defectives;
+            }
+
+            // Update summary
+            updateSummary(card);
+        }
+
+        // Update summary totals
+        function updateSummary(card) {
+            const summaryItems = card.querySelectorAll('.summary-item');
+            
+            MAIN_ITEMS.forEach((item, index) => {
+                const overallInput = card.querySelector(`input[data-item="${item}"][data-field="overallTotal"]`);
+                const total = parseInt(overallInput?.value) || 0;
+                
+                if (summaryItems[index]) {
+                    const numberElement = summaryItems[index].querySelector('.summary-number');
+                    if (numberElement) {
+                        numberElement.textContent = total.toLocaleString();
+                    }
+                }
+            });
+
+            // Keep the original data attributes for compatibility
+            let totalUnits = 0;
+            let totalDefectives = 0;
+
+            MAIN_ITEMS.forEach(item => {
+                const overallInput = card.querySelector(`input[data-item="${item}"][data-field="overallTotal"]`);
+                const defectiveInput = card.querySelector(`input[data-item="${item}"][data-field="defectives"]`);
+                
+                totalUnits += parseInt(overallInput?.value) || 0;
+                totalDefectives += parseInt(defectiveInput?.value) || 0;
+            });
+
+            card.dataset.totalUnits = totalUnits;
+            card.dataset.totalDefectives = totalDefectives;
+        }
+
+        // Department Management Functions
+        function openDepartmentModal() {
+            loadDepartmentsList();
+            document.getElementById('departmentModal').style.display = 'block';
+        }
+
+        function closeDepartmentModal() {
+            document.getElementById('departmentModal').style.display = 'none';
+            document.getElementById('newDeptName').value = '';
+            document.getElementById('newDeptLabel').value = '';
+        }
+
+        function loadDepartmentsList() {
+            const departmentsList = document.getElementById('departmentsList');
+            departmentsList.innerHTML = '';
+
+            if (departmentsData.length === 0) {
+                departmentsList.innerHTML = '<p style="text-align: center; color: #666;">No departments found</p>';
+                return;
+            }
+
+            departmentsData.forEach(dept => {
+                const deptItem = document.createElement('div');
+                deptItem.className = 'department-item';
+                deptItem.innerHTML = `
+                    <span class="drag-handle">⋮⋮</span>
+                    <div class="department-info">
+                        <div class="department-name">${dept.name}</div>
+                        <div class="department-label">${dept.label}</div>
+                    </div>
+                    <div class="department-actions">
+                        <button class="btn btn-warning btn-small" onclick="editDepartment('${dept._id}')">Edit</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteDepartment('${dept._id}')">Delete</button>
+                    </div>
+                `;
+                departmentsList.appendChild(deptItem);
+            });
+        }
+
+        async function addDepartment() {
+            const name = document.getElementById('newDeptName').value.trim();
+            const label = document.getElementById('newDeptLabel').value.trim();
+
+            if (!name || !label) {
+                showToast('Please fill in both name and label', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/departments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ name: name.toLowerCase(), label: label.toUpperCase() })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to add department');
+                }
+
+                showToast('Department added successfully!', 'success');
+                document.getElementById('newDeptName').value = '';
+                document.getElementById('newDeptLabel').value = '';
+                loadDepartments();
+                loadDepartmentsList();
+            } catch (error) {
+                console.error('Error adding department:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        function editDepartment(departmentId) {
+            const dept = departmentsData.find(d => d._id === departmentId);
+            if (!dept) return;
+
+            editingDepartment = dept;
+            document.getElementById('editDeptName').value = dept.name;
+            document.getElementById('editDeptLabel').value = dept.label;
+            document.getElementById('editDepartmentModal').style.display = 'block';
+        }
+
+        function closeEditDepartmentModal() {
+            document.getElementById('editDepartmentModal').style.display = 'none';
+            editingDepartment = null;
+        }
+
+        async function saveEditDepartment() {
+            if (!editingDepartment) return;
+
+            const name = document.getElementById('editDeptName').value.trim();
+            const label = document.getElementById('editDeptLabel').value.trim();
+
+            if (!name || !label) {
+                showToast('Please fill in both name and label', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/departments/${editingDepartment._id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ name: name.toLowerCase(), label: label.toUpperCase() })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to update department');
+                }
+
+                showToast('Department updated successfully!', 'success');
+                closeEditDepartmentModal();
+                loadDepartments();
+                loadDepartmentsList();
+            } catch (error) {
+                console.error('Error updating department:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function deleteDepartment(departmentId) {
+            if (!confirm('Are you sure you want to delete this department? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/departments/${departmentId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to delete department');
+                }
+
+                showToast('Department deleted successfully!', 'success');
+                loadDepartments();
+                loadDepartmentsList();
+            } catch (error) {
+                console.error('Error deleting department:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Toggle card expansion
+        function toggleCard(card) {
+            if (event.target.classList.contains('close-btn') ||
+                event.target.classList.contains('count-input') ||
+                event.target.tagName === 'INPUT' ||
+                event.target.tagName === 'BUTTON' ||
+                event.target.closest('.action-buttons') ||
+                event.target.closest('.table-container')) {
+                return;
+            }
+
+            const allCards = document.querySelectorAll('.audit-card');
+            allCards.forEach(c => {
+                if (c !== card) {
+                    c.classList.remove('expanded');
+                }
+            });
+
+            // Store original data when card is expanded for change tracking
+            if (!card.classList.contains('expanded')) {
+                storeOriginalAuditData(card);
+            }
+
+            card.classList.toggle('expanded');
+        }
+
+        // Close card
+        function closeCard(event, button) {
+            event.stopPropagation();
+            const card = button.closest('.audit-card');
+            card.classList.remove('expanded');
+        }
+
+        // Save audit with dynamic departments and logging
+        async function saveAudit(button) {
+            const card = button.closest('.audit-card');
+            const auditId = card.dataset.id;
+            const auditDate = card.dataset.date;
+            const isCreate = !auditId;
+
+            // Collect data
+            const items = {};
+            const otherItems = {};
+            const missingItems = {};
+
+            MAIN_ITEMS.forEach(item => {
+                items[item] = {};
+                departmentsData.forEach(dept => {
+                    const input = card.querySelector(`input[data-item="${item}"][data-field="${dept.name}"]`);
+                    items[item][dept.name] = parseInt(input?.value) || 0;
+                });
+
+                // Add other fields
+                const totalInput = card.querySelector(`input[data-item="${item}"][data-field="total"]`);
+                const stockInput = card.querySelector(`input[data-item="${item}"][data-field="stock"]`);
+                const defectivesInput = card.querySelector(`input[data-item="${item}"][data-field="defectives"]`);
+                const overallTotalInput = card.querySelector(`input[data-item="${item}"][data-field="overallTotal"]`);
+
+                items[item].total = parseInt(totalInput?.value) || 0;
+                items[item].stock = parseInt(stockInput?.value) || 0;
+                items[item].defectives = parseInt(defectivesInput?.value) || 0;
+                items[item].overallTotal = parseInt(overallTotalInput?.value) || 0;
+            });
+
+            // Collect other items data
+            OTHER_ITEMS.forEach(item => {
+                const input = card.querySelector(`input[data-other="${item}"]`);
+                otherItems[item] = parseInt(input?.value) || 0;
+            });
+
+            // Collect missing items data
+            MISSING_ITEMS.forEach(item => {
+                const input = card.querySelector(`input[data-missing="${item}"]`);
+                missingItems[item] = parseInt(input?.value) || 0;
+            });
+
+           const auditData = {
+  date: auditDate,
+  site: localStorage.getItem('userSite') || 'Unknown', // Add user's site
+  items: items,
+  otherItems: otherItems,
+  missingItems: missingItems
+};
+
+            try {
+                let response;
+                if (auditId) {
+                    response = await fetch(`${API_BASE_URL}/audits/${auditDate}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify(auditData)
+                    });
+                } else {
+                    response = await fetch(`${API_BASE_URL}/audits`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify(auditData)
+                    });
+                }
+
+                if (!response.ok) {
+                    throw new Error('Failed to save audit');
+                }
+
+                // Log the changes
+                await logAuditChanges(auditId, auditDate, items, isCreate);
+
+                showToast('Audit saved successfully!', 'success');
+                loadMonthData();
+            } catch (error) {
+                console.error('Error saving audit:', error);
+                showToast('Error saving audit', 'error');
+            }
+        }
+
+        // Cancel edit
+        function cancelEdit(button) {
+            const card = button.closest('.audit-card');
+            card.classList.remove('expanded');
+            loadMonthData();
+        }
+
+        // Confirm delete audit
+        function confirmDeleteAudit(button) {
+            const card = button.closest('.audit-card');
+            const auditId = card.dataset.id;
+            const auditDate = card.dataset.date;
+            const dateText = card.querySelector('.audit-date').textContent;
+            
+            auditToDelete = {
+                id: auditId,
+                date: auditDate,
+                dateText: dateText,
+                card: card
+            };
+            
+            const modal = document.getElementById('confirmModal');
+            const message = modal.querySelector('p');
+            message.textContent = `Are you sure you want to delete the audit for ${dateText}? This action cannot be undone.`;
+            
+            modal.style.display = 'block';
+        }
+
+        // Delete audit with logging
+        async function deleteAudit() {
+            if (!auditToDelete) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/audits/${auditToDelete.date}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete audit');
+                }
+
+                // Log the deletion
+                await logChange({
+                    action: 'delete',
+                    auditDate: auditToDelete.date,
+                    description: `Audit for ${auditToDelete.dateText} deleted`
+                });
+
+                showToast(`Audit for ${auditToDelete.dateText} deleted successfully!`, 'success');
+                closeModal();
+                loadMonthData();
+            } catch (error) {
+                console.error('Error deleting audit:', error);
+                showToast('Error deleting audit', 'error');
+                closeModal();
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            const modal = document.getElementById('confirmModal');
+            modal.style.display = 'none';
+            auditToDelete = null;
+        }
+
+        // Add new audit with dynamic departments
+        async function addNewAudit() {
+            const today = new Date();
+            const auditDate = new Date(currentYear, currentMonth, today.getDate());
+
+            const existingAudit = auditsData.find(audit => 
+                new Date(audit.date).toDateString() === auditDate.toDateString()
+            );
+
+            if (existingAudit) {
+                showToast('An audit already exists for today', 'error');
+                return;
+            }
+
+            // Create empty audit structure with dynamic departments
+            const items = {};
+            MAIN_ITEMS.forEach(item => {
+                items[item] = {
+                    total: 0,
+                    stock: 0,
+                    defectives: 0,
+                    overallTotal: 0
+                };
+                
+                // Add dynamic department fields
+                departmentsData.forEach(dept => {
+                    items[item][dept.name] = 0;
+                });
+            });
+
+            const otherItems = {};
+            OTHER_ITEMS.forEach(item => {
+                otherItems[item] = 0;
+            });
+
+            const missingItems = {};
+            MISSING_ITEMS.forEach(item => {
+                missingItems[item] = 0;
+            });
+
+            const newAudit = {
+date: auditDate.toISOString(),
+  site: localStorage.getItem('userSite') || 'Unknown', // Add user's site
+  items: items,
+  otherItems: otherItems,
+  missingItems: missingItems
+};
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/audits`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(newAudit)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to create audit');
+                }
+
+                showToast('New audit created!', 'success');
+                loadMonthData();
+            } catch (error) {
+                console.error('Error creating audit:', error);
+                showToast('Error creating audit', 'error');
+            }
+        }
+
+        // Handle month change
+        function handleMonthChange() {
+            const selector = document.getElementById('monthSelector');
+            currentMonth = parseInt(selector.value);
+            loadMonthData();
+        }
+
+        // Change month with navigation
+        function changeMonth(direction) {
+            currentMonth += direction;
+            
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            } else if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+
+            document.getElementById('monthSelector').value = currentMonth;
+            updateMonthSelectorOptions();
+            loadMonthData();
+        }
+
+        // Update month selector options
+        function updateMonthSelectorOptions() {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+            const selector = document.getElementById('monthSelector');
+            
+            selector.innerHTML = months.map((month, index) => 
+                `<option value="${index}" ${index === currentMonth ? 'selected' : ''}>${month} ${currentYear}</option>`
+            ).join('');
+        }
+
+        // Search functionality
+        document.getElementById('searchBar').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.audit-card');
+
+            cards.forEach(card => {
+                const dateText = card.querySelector('.audit-date').textContent.toLowerCase();
+                if (dateText.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Show/hide loading spinner
+        function showLoading(show) {
+            document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.style.display = 'block';
+
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        // Logout function
+        // Standardized logout function
+function logout() {
+    const token = localStorage.getItem('authToken');
+    
+    // Call logout endpoint
+    if (token) {
+        fetch(window.INVENTORY_CONFIG.API_BASE_URL + '/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .catch(error => console.error('Logout error:', error));
+    }
+    
+    // Clear local storage
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('username');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userDepartment');
+    localStorage.removeItem('userSite');
+    
+    // Redirect to login
+    window.location.href = 'login.html';
+}
+
+        // Logs Management Functions
+        function openLogsModal() {
+            document.getElementById('logsModal').style.display = 'block';
+            loadLogs();
+        }
+
+        function closeLogsModal() {
+            document.getElementById('logsModal').style.display = 'none';
+        }
+
+        async function loadLogs() {
+            showLogsLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/logs`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch logs');
+                }
+
+                const data = await response.json();
+                logsData = data.data || [];
+                filteredLogsData = [...logsData]; // Initialize filtered data with all logs
+                populateQuickDateButtons();
+                displayLogs(filteredLogsData);
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                showToast('Error loading logs', 'error');
+                logsData = [];
+                filteredLogsData = [];
+                displayLogs([]);
+            } finally {
+                showLogsLoading(false);
+            }
+        }
+
+        function populateQuickDateButtons() {
+            const quickDateButtons = document.getElementById('quickDateButtons');
+            if (!quickDateButtons) return;
+
+            // Get unique audit dates from logs
+            const auditDates = [...new Set(logsData.map(log => {
+                return new Date(log.auditDate).toDateString();
+            }))].sort((a, b) => new Date(b) - new Date(a)); // Sort newest first
+
+            // Take only the last 7 dates to avoid clutter
+            const recentDates = auditDates.slice(0, 7);
+
+            if (recentDates.length === 0) {
+                quickDateButtons.innerHTML = '<span style="color: #666; font-style: italic;">No audit dates available</span>';
+                return;
+            }
+
+            quickDateButtons.innerHTML = recentDates.map(dateString => {
+                const date = new Date(dateString);
+                const formattedDate = date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric'
+                });
+                const isoDate = date.toISOString().split('T')[0];
+                
+                return `
+                    <button 
+                        style="
+                            background-color: #e3f2fd; 
+                            border: 1px solid #2196f3; 
+                            color: #1976d2; 
+                            padding: 6px 12px; 
+                            border-radius: 4px; 
+                            cursor: pointer; 
+                            font-size: 12px;
+                            transition: all 0.2s ease;
+                        "
+                        onmouseover="this.style.backgroundColor='#2196f3'; this.style.color='white';"
+                        onmouseout="this.style.backgroundColor='#e3f2fd'; this.style.color='#1976d2';"
+                        onclick="selectQuickDate('${isoDate}')"
+                    >
+                        ${formattedDate}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectQuickDate(isoDate) {
+            document.getElementById('logsAuditDate').value = isoDate;
+            filterLogs();
+        }
+
+        function displayLogs(logs) {
+            const tableBody = document.getElementById('logsTableBody');
+            const emptyState = document.getElementById('logsEmpty');
+            
+            if (logs.length === 0) {
+                tableBody.innerHTML = '';
+                emptyState.style.display = 'block';
+                updateExportButtonText();
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            
+            tableBody.innerHTML = logs.map(log => {
+                const timestamp = new Date(log.timestamp).toLocaleString();
+                const auditDate = new Date(log.auditDate).toLocaleDateString();
+                const changeIndicator = getChangeIndicator(log.oldValue, log.newValue);
+                const impact = getChangeImpact(log);
+                
+                return `
+                    <tr style="border-bottom: 1px solid #e0e0e0;">
+                        <td style="padding: 8px; border: 1px solid #e0e0e0;">${timestamp}</td>
+                        <td style="padding: 8px; border: 1px solid #e0e0e0;">
+                            <span class="badge badge-${getActionColor(log.action)}">${log.action.toUpperCase()}</span>
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #e0e0e0;">${auditDate}</td>
+                        <td style="padding: 8px; border: 1px solid #e0e0e0; font-weight: 600;">${log.item || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #e0e0e0;">${log.field || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #e0e0e0; color: #e74c3c;">${formatValue(log.oldValue)}</td>
+                        <td style="padding: 8px; border: 1px solid #e0e0e0; color: #27ae60;">${formatValue(log.newValue)}</td>
+                        <td style="padding: 8px; border: 1px solid #e0e0e0;">${changeIndicator}</td>
+                        <td style="padding: 8px; border: 1px solid #e0e0e0; font-size: 11px;">${impact}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Update export button text after displaying logs
+            updateExportButtonText();
+        }
+
+        function getActionColor(action) {
+            switch(action) {
+                case 'create': return 'success';
+                case 'update': return 'warning';
+                case 'delete': return 'danger';
+                default: return 'secondary';
+            }
+        }
+
+        function formatValue(value) {
+            if (value === null || value === undefined) return '-';
+            if (typeof value === 'number') return value.toLocaleString();
+            return value.toString();
+        }
+
+        function getChangeIndicator(oldValue, newValue) {
+            if (oldValue === null || oldValue === undefined) return '➕ Added';
+            if (newValue === null || newValue === undefined) return '➖ Removed';
+            
+            const oldNum = parseInt(oldValue) || 0;
+            const newNum = parseInt(newValue) || 0;
+            const diff = newNum - oldNum;
+            
+            if (diff > 0) return `📈 +${diff}`;
+            if (diff < 0) return `📉 ${diff}`;
+            return '➡️ No Change';
+        }
+
+        function getChangeImpact(log) {
+            const impacts = [];
+            
+            if (log.field && log.field !== 'total' && log.field !== 'overallTotal') {
+                impacts.push('Affects totals');
+            }
+            
+            if (log.relatedChanges && log.relatedChanges.length > 0) {
+                impacts.push(`${log.relatedChanges.length} related changes`);
+            }
+            
+            return impacts.length > 0 ? impacts.join(', ') : 'Direct change only';
+        }
+
+        function filterLogs() {
+            const auditDate = document.getElementById('logsAuditDate').value;
+            const action = document.getElementById('logsAction').value;
+            const item = document.getElementById('logsItem').value;
+
+            let filteredLogs = [...logsData];
+
+            // Filter by specific audit date (not timestamp, but the actual audit date)
+            if (auditDate) {
+                const selectedDate = new Date(auditDate);
+                filteredLogs = filteredLogs.filter(log => {
+                    const logAuditDate = new Date(log.auditDate);
+                    return logAuditDate.toDateString() === selectedDate.toDateString();
+                });
+            }
+
+            if (action) {
+                filteredLogs = filteredLogs.filter(log => log.action === action);
+            }
+
+            if (item) {
+                filteredLogs = filteredLogs.filter(log => log.item === item);
+            }
+
+            // Update the filtered data and display
+            filteredLogsData = filteredLogs;
+            displayLogs(filteredLogsData);
+            
+            // Update export button text to show filtered count
+            updateExportButtonText();
+        }
+
+        function clearLogsFilter() {
+            document.getElementById('logsAuditDate').value = '';
+            document.getElementById('logsAction').value = '';
+            document.getElementById('logsItem').value = '';
+            
+            // Reset to show all logs
+            filteredLogsData = [...logsData];
+            displayLogs(filteredLogsData);
+            
+            // Reset export button text
+            updateExportButtonText();
+        }
+
+        function updateExportButtonText() {
+            const exportBtn = document.querySelector('.modal-buttons .btn-primary');
+            const generateReportBtn = document.querySelector('.modal-buttons .btn-success');
+            const filterStatus = document.getElementById('filterStatus');
+            const filterStatusText = document.getElementById('filterStatusText');
+            
+            const count = filteredLogsData.length;
+            const total = logsData.length;
+            
+            // Update Export button
+            if (exportBtn && exportBtn.textContent.includes('Export')) {
+                if (count === total) {
+                    exportBtn.textContent = `Export All Logs (${total})`;
+                    // Hide filter status when showing all logs
+                    if (filterStatus) filterStatus.style.display = 'none';
+                } else {
+                    exportBtn.textContent = `Export Filtered Logs (${count} of ${total})`;
+                    // Show filter status when filtered
+                    if (filterStatus && filterStatusText) {
+                        filterStatus.style.display = 'block';
+                        
+                        // Build filter description
+                        const auditDate = document.getElementById('logsAuditDate').value;
+                        const action = document.getElementById('logsAction').value;
+                        const item = document.getElementById('logsItem').value;
+                        
+                        let filterDesc = `Showing ${count} of ${total} logs`;
+                        const filters = [];
+                        
+                        if (auditDate) {
+                            const formattedDate = new Date(auditDate).toLocaleDateString('en-US');
+                            filters.push(`Date: ${formattedDate}`);
+                        }
+                        if (action) filters.push(`Action: ${action}`);
+                        if (item) filters.push(`Item: ${item}`);
+                        
+                        if (filters.length > 0) {
+                            filterDesc += ` (${filters.join(', ')})`;
+                        }
+                        
+                        filterStatusText.textContent = filterDesc;
+                    }
+                }
+            }
+
+            // Update Generate Report button
+            if (generateReportBtn && generateReportBtn.textContent.includes('Generate')) {
+                if (count === total) {
+                    generateReportBtn.textContent = `Generate Report (${total})`;
+                } else {
+                    generateReportBtn.textContent = `Generate Report (${count} of ${total})`;
+                }
+            }
+        }
+
+        function exportLogs() {
+            if (filteredLogsData.length === 0) {
+                showToast('No logs to export with current filters', 'error');
+                return;
+            }
+
+            // Determine if we're exporting filtered or all logs
+            const isFiltered = filteredLogsData.length !== logsData.length;
+            const exportType = isFiltered ? 'filtered' : 'all';
+            
+            const csv = convertLogsToCSV(filteredLogsData);
+            const fileName = isFiltered 
+                ? `audit_logs_filtered_${new Date().toISOString().split('T')[0]}.csv`
+                : `audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+            
+            downloadCSV(csv, fileName);
+            
+            const message = isFiltered 
+                ? `Exported ${filteredLogsData.length} filtered logs successfully!`
+                : `Exported all ${filteredLogsData.length} logs successfully!`;
+            
+            showToast(message, 'success');
+        }
+
+        function convertLogsToCSV(logs) {
+            const headers = ['Timestamp', 'Action', 'Audit Date', 'Item', 'Field', 'Old Value', 'New Value', 'Change', 'Impact'];
+            
+            // Add metadata header if logs are filtered
+            const isFiltered = logs.length !== logsData.length;
+            const csvRows = [];
+            
+            if (isFiltered) {
+                // Add filter info as comments at the top
+                csvRows.push(`# Filtered Audit Logs Export`);
+                csvRows.push(`# Export Date: ${new Date().toLocaleString()}`);
+                csvRows.push(`# Showing: ${logs.length} of ${logsData.length} total logs`);
+                csvRows.push(`# Filters Applied: See filter values below`);
+                
+                // Add current filter values
+                const auditDate = document.getElementById('logsAuditDate').value;
+                const action = document.getElementById('logsAction').value;
+                const item = document.getElementById('logsItem').value;
+                
+                if (auditDate) csvRows.push(`# Audit Date: ${auditDate}`);
+                if (action) csvRows.push(`# Action: ${action}`);
+                if (item) csvRows.push(`# Item: ${item}`);
+                
+                csvRows.push(''); // Empty line before headers
+            }
+            
+            // Add headers
+            csvRows.push(headers.join(','));
+            
+            // Add data rows
+            logs.forEach(log => {
+                const row = [
+                    `"${new Date(log.timestamp).toLocaleString()}"`,
+                    log.action,
+                    `"${new Date(log.auditDate).toLocaleDateString()}"`,
+                    log.item || '',
+                    log.field || '',
+                    formatValue(log.oldValue),
+                    formatValue(log.newValue),
+                    `"${getChangeIndicator(log.oldValue, log.newValue)}"`,
+                    `"${getChangeImpact(log)}"`
+                ];
+                csvRows.push(row.join(','));
+            });
+            
+            return csvRows.join('\n');
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function showLogsLoading(show) {
+            document.getElementById('logsLoading').style.display = show ? 'block' : 'none';
+        }
+
+        // Report Generation Functions
+        function generateReport() {
+            if (filteredLogsData.length === 0) {
+                showToast('No logs available to generate report', 'error');
+                return;
+            }
+
+            const report = createAuditReport(filteredLogsData);
+            displayReport(report);
+            document.getElementById('reportModal').style.display = 'block';
+        }
+
+        function createAuditReport(logs) {
+            // Group logs by audit date
+            const logsByDate = {};
+            
+            logs.forEach(log => {
+                const dateKey = new Date(log.auditDate).toLocaleDateString('en-US');
+                if (!logsByDate[dateKey]) {
+                    logsByDate[dateKey] = [];
+                }
+                logsByDate[dateKey].push(log);
+            });
+
+            let report = '';
+            let totalChanges = 0;
+            let itemsAffected = new Set();
+            let auditDatesCount = Object.keys(logsByDate).length;
+
+            // Sort dates
+            const sortedDates = Object.keys(logsByDate).sort((a, b) => new Date(a) - new Date(b));
+
+            sortedDates.forEach(dateKey => {
+                const dateLogs = logsByDate[dateKey];
+                const reportDate = new Date(dateKey).toLocaleDateString('en-US', { 
+                    year: '2-digit', 
+                    month: '2-digit', 
+                    day: '2-digit' 
+                });
+
+                report += `Audit Report\n`;
+                report += `Log Date: ${reportDate}\n`;
+                report += `${'='.repeat(40)}\n\n`;
+
+                // Group by item and organize changes
+                const itemChanges = {};
+                
+                dateLogs.forEach(log => {
+                    if (!log.item) return;
+                    
+                    if (!itemChanges[log.item]) {
+                        itemChanges[log.item] = {
+                            fieldChanges: [],
+                            totalChanges: [],
+                            overallTotalChanges: []
+                        };
+                    }
+
+                    if (log.field === 'total') {
+                        itemChanges[log.item].totalChanges.push(log);
+                    } else if (log.field === 'overallTotal') {
+                        itemChanges[log.item].overallTotalChanges.push(log);
+                    } else if (log.field !== 'total' && log.field !== 'overallTotal') {
+                        itemChanges[log.item].fieldChanges.push(log);
+                    }
+
+                    itemsAffected.add(log.item);
+                    totalChanges++;
+                });
+
+                // Generate report for each item
+                Object.keys(itemChanges).sort().forEach(item => {
+                    const changes = itemChanges[item];
+                    
+                    if (changes.fieldChanges.length > 0) {
+                        report += `${item} count update:\n`;
+                        
+                        // Show field changes
+                        changes.fieldChanges.forEach(log => {
+                            const fieldLabel = getDepartmentLabel(log.field) || log.field.toUpperCase();
+                            report += `  ${fieldLabel} count: ${formatValue(log.oldValue)} -> ${formatValue(log.newValue)}\n`;
+                        });
+
+                        // Show current totals (from the last state)
+                        if (changes.fieldChanges.length > 0) {
+                            // Find the latest stock and defectives values for this item
+                            const stockLog = dateLogs.find(l => l.item === item && l.field === 'stock');
+                            const defectivesLog = dateLogs.find(l => l.item === item && l.field === 'defectives');
+                            
+                            if (stockLog || defectivesLog) {
+                                const stockValue = stockLog ? stockLog.newValue : 'unchanged';
+                                const defectivesValue = defectivesLog ? defectivesLog.newValue : 'unchanged';
+                                report += `  New count: Stock: ${formatValue(stockValue)}, Defective: ${formatValue(defectivesValue)}\n`;
+                            }
+                        }
+
+                        // Show total changes if any
+                        if (changes.totalChanges.length > 0) {
+                            changes.totalChanges.forEach(log => {
+                                report += `  Total recalculated: ${formatValue(log.oldValue)} -> ${formatValue(log.newValue)}\n`;
+                            });
+                        }
+
+                        // Show overall total changes if any
+                        if (changes.overallTotalChanges.length > 0) {
+                            changes.overallTotalChanges.forEach(log => {
+                                report += `  Overall Total updated: ${formatValue(log.oldValue)} -> ${formatValue(log.newValue)}\n`;
+                            });
+                        }
+
+                        report += '\n';
+                    }
+                });
+
+                // Add creation/deletion logs
+                const creationLogs = dateLogs.filter(log => log.action === 'create');
+                const deletionLogs = dateLogs.filter(log => log.action === 'delete');
+
+                if (creationLogs.length > 0) {
+                    report += 'Audit Creation:\n';
+                    creationLogs.forEach(log => {
+                        report += `  ${log.description}\n`;
+                    });
+                    report += '\n';
+                }
+
+                if (deletionLogs.length > 0) {
+                    report += 'Audit Deletion:\n';
+                    deletionLogs.forEach(log => {
+                        report += `  ${log.description}\n`;
+                    });
+                    report += '\n';
+                }
+
+                report += '\n';
+            });
+
+            // Add summary at the end
+            report += `${'='.repeat(40)}\n`;
+            report += `REPORT SUMMARY\n`;
+            report += `${'='.repeat(40)}\n`;
+            report += `Total Changes: ${totalChanges}\n`;
+            report += `Items Affected: ${itemsAffected.size} (${Array.from(itemsAffected).join(', ')})\n`;
+            report += `Audit Dates: ${auditDatesCount}\n`;
+            report += `Report Generated: ${new Date().toLocaleString()}\n`;
+
+            if (filteredLogsData.length !== logsData.length) {
+                report += `\nNote: This report is based on filtered data (${filteredLogsData.length} of ${logsData.length} total logs)\n`;
+            }
+
+            return {
+                content: report,
+                stats: {
+                    totalChanges,
+                    itemsAffected: itemsAffected.size,
+                    auditDatesCount,
+                    isFiltered: filteredLogsData.length !== logsData.length,
+                    filteredCount: filteredLogsData.length,
+                    totalCount: logsData.length
+                }
+            };
+        }
+
+        function getDepartmentLabel(fieldName) {
+            const dept = departmentsData.find(d => d.name === fieldName);
+            return dept ? dept.label : null;
+        }
+
+        function displayReport(report) {
+            document.getElementById('reportContent').textContent = report.content;
+            
+            // Update stats
+            const statsContainer = document.getElementById('reportStats');
+            statsContainer.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #1976d2;">${report.stats.totalChanges}</div>
+                    <div style="font-size: 0.9rem; color: #666;">Total Changes</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #1976d2;">${report.stats.itemsAffected}</div>
+                    <div style="font-size: 0.9rem; color: #666;">Items Affected</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #1976d2;">${report.stats.auditDatesCount}</div>
+                    <div style="font-size: 0.9rem; color: #666;">Audit Dates</div>
+                </div>
+                ${report.stats.isFiltered ? `
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #f39c12;">${report.stats.filteredCount}</div>
+                    <div style="font-size: 0.9rem; color: #666;">of ${report.stats.totalCount} logs</div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        function downloadReport() {
+            const reportContent = document.getElementById('reportContent').textContent;
+            if (!reportContent) {
+                showToast('No report content to download', 'error');
+                return;
+            }
+
+            const isFiltered = filteredLogsData.length !== logsData.length;
+            const filename = isFiltered 
+                ? `audit_report_filtered_${new Date().toISOString().split('T')[0]}.txt`
+                : `audit_report_${new Date().toISOString().split('T')[0]}.txt`;
+
+            downloadTextFile(reportContent, filename);
+            showToast('Report downloaded successfully!', 'success');
+        }
+
+        function downloadTextFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModal').style.display = 'none';
+        }
+
+        // Store original audit data for change tracking
+        function storeOriginalAuditData(card) {
+            const auditId = card.dataset.id;
+            const auditDate = card.dataset.date;
+            
+            const originalData = {};
+            
+            // Store original values for all inputs
+            MAIN_ITEMS.forEach(item => {
+                originalData[item] = {};
+                
+                // Department values
+                departmentsData.forEach(dept => {
+                    const input = card.querySelector(`input[data-item="${item}"][data-field="${dept.name}"]`);
+                    if (input) {
+                        originalData[item][dept.name] = parseInt(input.value) || 0;
+                    }
+                });
+                
+                // Other fields
+                ['total', 'stock', 'defectives', 'overallTotal'].forEach(field => {
+                    const input = card.querySelector(`input[data-item="${item}"][data-field="${field}"]`);
+                    if (input) {
+                        originalData[item][field] = parseInt(input.value) || 0;
+                    }
+                });
+            });
+            
+            originalAuditData[auditId || auditDate] = originalData;
+        }
+
+        // Log changes when audit is saved
+        async function logAuditChanges(auditId, auditDate, newData, isCreate = false) {
+            if (isCreate) {
+                // Log creation
+                await logChange({
+                    action: 'create',
+                    auditDate: auditDate,
+                    description: 'Audit created'
+                });
+                return;
+            }
+
+            const originalData = originalAuditData[auditId || auditDate];
+            if (!originalData) return;
+
+            const changes = [];
+
+            MAIN_ITEMS.forEach(item => {
+                const originalItem = originalData[item] || {};
+                const newItem = newData[item] || {};
+
+                // Check each field for changes
+                const allFields = [...departmentsData.map(d => d.name), 'stock', 'defectives'];
+                
+                allFields.forEach(field => {
+                    const oldValue = originalItem[field] || 0;
+                    const newValue = newItem[field] || 0;
+                    
+                    if (oldValue !== newValue) {
+                        changes.push({
+                            action: 'update',
+                            auditDate: auditDate,
+                            item: item,
+                            field: field,
+                            oldValue: oldValue,
+                            newValue: newValue,
+                            description: `${item} ${field} changed from ${oldValue} to ${newValue}`
+                        });
+
+                        // Log related changes (totals)
+                        if (field !== 'total' && field !== 'overallTotal') {
+                            const oldTotal = originalItem.total || 0;
+                            const newTotal = newItem.total || 0;
+                            const oldOverallTotal = originalItem.overallTotal || 0;
+                            const newOverallTotal = newItem.overallTotal || 0;
+
+                            if (oldTotal !== newTotal) {
+                                changes.push({
+                                    action: 'update',
+                                    auditDate: auditDate,
+                                    item: item,
+                                    field: 'total',
+                                    oldValue: oldTotal,
+                                    newValue: newTotal,
+                                    description: `${item} total recalculated: ${oldTotal} → ${newTotal}`,
+                                    relatedTo: `${item} ${field} change`
+                                });
+                            }
+
+                            if (oldOverallTotal !== newOverallTotal) {
+                                changes.push({
+                                    action: 'update',
+                                    auditDate: auditDate,
+                                    item: item,
+                                    field: 'overallTotal',
+                                    oldValue: oldOverallTotal,
+                                    newValue: newOverallTotal,
+                                    description: `${item} overall total recalculated: ${oldOverallTotal} → ${newOverallTotal}`,
+                                    relatedTo: `${item} ${field} change`
+                                });
+                            }
+                        }
+                    }
+                });
+            });
+
+            // Send all changes to backend
+            for (const change of changes) {
+                await logChange(change);
+            }
+        }
+
+        // Log individual change
+        async function logChange(changeData) {
+            try {
+                await fetch(`${API_BASE_URL}/logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(changeData)
+                });
+            } catch (error) {
+                console.error('Error logging change:', error);
+            }
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const confirmModal = document.getElementById('confirmModal');
+            const departmentModal = document.getElementById('departmentModal');
+            const editDepartmentModal = document.getElementById('editDepartmentModal');
+            const logsModal = document.getElementById('logsModal');
+            const reportModal = document.getElementById('reportModal');
+            
+            if (event.target === confirmModal) {
+                closeModal();
+            } else if (event.target === departmentModal) {
+                closeDepartmentModal();
+            } else if (event.target === editDepartmentModal) {
+                closeEditDepartmentModal();
+            } else if (event.target === logsModal) {
+                closeLogsModal();
+            } else if (event.target === reportModal) {
+                closeReportModal();
+            }
+        }
+
+        // Standardized Navigation Management
+function initializeNavigation() {
+    // Get current page from URL
+    const currentPage = window.location.pathname.split('/').pop() || 'dashboard.html';
+    
+    // Remove active class from all nav items
+    document.querySelectorAll('#sidebar a').forEach(link => {
+        link.classList.remove('active');
+    });
+    
+    // Set active state based on current page
+    if (currentPage === 'dashboard.html' || currentPage === '' || currentPage === '/') {
+        document.getElementById('nav-home').classList.add('active');
+    } else if (currentPage === 'production-map.html') {
+        document.getElementById('nav-production').classList.add('active');
+        
+        // Handle device type from URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceType = urlParams.get('device') || 'mouse';
+        
+        // Set active sub-nav
+        document.querySelectorAll('.sub-nav-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.href.includes(`device=${deviceType}`)) {
+                link.classList.add('active');
+            }
+        });
+    } else if (currentPage === 'dailyAudit.html') {
+        document.getElementById('nav-audit').classList.add('active');
+    }
+}
+
+// Initialize navigation when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeNavigation();
+});
+
+// Show/hide error messages
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
+    if (errorDiv && errorText) {
+        errorText.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+    console.error('Error:', message);
+}
+
+function hideError() {
+    const errorDiv = document.getElementById('errorMessage');
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
+}
+
+function retryConnection() {
+    hideError();
+    loadMonthData();
+}
+
+// Helper function for month names
+function getMonthName(monthIndex) {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                   'July', 'August', 'September', 'October', 'November', 'December'];
+    return months[monthIndex] || 'Unknown';
+}
+    </script>
+</body>
+</html>
